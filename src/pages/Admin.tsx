@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Plus, 
   FileSpreadsheet, 
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import QRCodeDisplay from "@/components/QRCodeDisplay";
 
 const Admin = () => {
   const [newClinic, setNewClinic] = useState({
@@ -131,13 +132,6 @@ const Admin = () => {
     toast({
       title: "تم حذف العيادة",
       description: "تم حذف العيادة من النظام",
-    });
-  };
-
-  const generateQRCode = (licenseNumber: string) => {
-    toast({
-      title: "تم إنتاج QR Code",
-      description: `تم إنتاج كود QR للعيادة ${licenseNumber}`,
     });
   };
 
@@ -444,13 +438,29 @@ const Admin = () => {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => generateQRCode(clinic.licenseNumber)}
-                            >
-                              <QrCode className="h-4 w-4" />
-                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline">
+                                  <QrCode className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-md">
+                                <DialogHeader>
+                                  <DialogTitle>QR Code - {clinic.name}</DialogTitle>
+                                  <DialogDescription>
+                                    كود QR الخاص بالعيادة
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="flex justify-center py-4">
+                                  <QRCodeDisplay value={clinic.licenseNumber} size={200} />
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm text-gray-600">
+                                    يمكن للمرضى مسح هذا الكود للتحقق من ترخيص العيادة
+                                  </p>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                             <Button size="sm" variant="outline">
                               <Edit className="h-4 w-4" />
                             </Button>

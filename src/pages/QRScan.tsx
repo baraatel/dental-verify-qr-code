@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { QrCode, Camera, ArrowRight, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import QRCodeDisplay from "@/components/QRCodeDisplay";
 
 const QRScan = () => {
   const [qrResult, setQrResult] = useState("");
@@ -68,6 +68,7 @@ const QRScan = () => {
         title: "خطأ في النظام",
         description: "حدث خطأ أثناء البحث عن البيانات",
         variant: "destructive",
+        
       });
     } finally {
       setLoading(false);
@@ -239,6 +240,11 @@ const QRScan = () => {
                     <span className={`font-semibold ${getStatusColor(clinicData.status)}`}>
                       {getStatusText(clinicData.status)}
                     </span>
+                  </div>
+
+                  {/* QR Code Display */}
+                  <div className="flex justify-center">
+                    <QRCodeDisplay value={clinicData.licenseNumber} size={150} />
                   </div>
 
                   {/* Clinic Information */}

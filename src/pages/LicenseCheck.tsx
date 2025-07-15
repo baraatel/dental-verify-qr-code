@@ -4,15 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, ArrowRight, CheckCircle, XCircle, AlertCircle, FileText } from "lucide-react";
+import { Search, ArrowRight, CheckCircle, XCircle, AlertCircle, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import QRCodeDisplay from "@/components/QRCodeDisplay";
 
 const LicenseCheck = () => {
   const [licenseNumber, setLicenseNumber] = useState("");
   const [clinicData, setClinicData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searched, setSearched] = useState(false);
   const { toast } = useToast();
 
   // Mock clinic data for demonstration
@@ -38,17 +39,6 @@ const LicenseCheck = () => {
       issueDate: "2022-06-10",
       expiryDate: "2024-06-10",
       status: "expired"
-    },
-    "LIC003": {
-      name: "عيادة الابتسامة المشرقة",
-      licenseNumber: "LIC003",
-      address: "شارع التحلية، الخبر",
-      phone: "013-555-7890",
-      specialty: "جراحة الفم والأسنان",
-      doctorName: "د. محمد حسن",
-      issueDate: "2023-08-20",
-      expiryDate: "2025-08-20",
-      status: "valid"
     }
   };
 
@@ -63,17 +53,15 @@ const LicenseCheck = () => {
     }
 
     setLoading(true);
+    setSearched(true);
+
     try {
       // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       const clinic = mockClinics[licenseNumber as keyof typeof mockClinics];
       if (clinic) {
         setClinicData(clinic);
-        // Add to search history if not already present
-        if (!searchHistory.includes(licenseNumber)) {
-          setSearchHistory(prev => [licenseNumber, ...prev.slice(0, 4)]);
-        }
         toast({
           title: "تم العثور على العيادة",
           description: "تم استرجاع بيانات العيادة بنجاح",
@@ -82,7 +70,7 @@ const LicenseCheck = () => {
         setClinicData(null);
         toast({
           title: "العيادة غير موجودة",
-          description: "لم يتم العثور على عيادة بهذا الرقم",
+          description: "لم يتم العثور على بيانات لهذا الرقم",
           variant: "destructive",
         });
       }
@@ -97,24 +85,11 @@ const LicenseCheck = () => {
     }
   };
 
-  const handleHistoryClick = (license: string) => {
-    setLicenseNumber(license);
-    handleSearchForLicense(license);
-  };
-
-  const handleSearchForLicense = async (license: string) => {
-    setLoading(true);
-    const clinic = mockClinics[license as keyof typeof mockClinics];
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setClinicData(clinic || null);
-    setLoading(false);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "valid": return "text-green-600 bg-green-50 border-green-200";
-      case "expired": return "text-red-600 bg-red-50 border-red-200";
-      default: return "text-yellow-600 bg-yellow-50 border-yellow-200";
+      case "valid": return "text-green-600";
+      case "expired": return "text-red-600";
+      default: return "text-yellow-600";
     }
   };
 
@@ -144,206 +119,169 @@ const LicenseCheck = () => {
               <ArrowRight className="h-6 w-6" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">البحث برقم الترخيص</h1>
+              <h1 className="text-2xl font-bold text-gray-800">التحقق من الترخيص</h1>
               <p className="text-gray-600">أدخل رقم الترخيص للتحقق من صحته</p>
             </div>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Search Section */}
-          <div className="lg:col-span-1">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-3">
-                  <Search className="h-6 w-6 text-green-600" />
-                  <span>البحث</span>
-                </CardTitle>
-                <CardDescription>
-                  أدخل رقم الترخيص للبحث
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="license-input" className="block text-sm font-medium mb-2">
-                    رقم الترخيص
-                  </Label>
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-3">
+                <Search className="h-6 w-6 text-blue-600" />
+                <span>البحث برقم الترخيص</span>
+              </CardTitle>
+              <CardDescription>
+                أدخل رقم ترخيص العيادة للتحقق من صحته وعرض التفاصيل
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="license-input" className="block text-sm font-medium mb-2">
+                  رقم الترخيص
+                </Label>
+                <div className="flex space-x-2">
                   <Input
                     id="license-input"
                     value={licenseNumber}
                     onChange={(e) => setLicenseNumber(e.target.value)}
                     placeholder="مثال: LIC001"
-                    className="w-full"
+                    className="flex-1"
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   />
+                  <Button 
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full ml-2"></div>
+                        جاري البحث...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 ml-2" />
+                        بحث
+                      </>
+                    )}
+                  </Button>
                 </div>
-                
-                <Button 
-                  onClick={handleSearch}
-                  disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full ml-2"></div>
-                      جاري البحث...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 ml-2" />
-                      بحث
-                    </>
-                  )}
-                </Button>
+              </div>
 
-                {/* Sample License Numbers */}
-                <div className="border-t pt-4">
-                  <Label className="block text-sm font-medium mb-2">أمثلة للتجربة:</Label>
-                  <div className="space-y-2">
-                    {Object.keys(mockClinics).map((license) => (
-                      <Button
-                        key={license}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setLicenseNumber(license);
-                          handleSearchForLicense(license);
-                        }}
-                        className="w-full text-left justify-start"
-                      >
-                        {license}
-                      </Button>
-                    ))}
-                  </div>
+              {/* Quick Links */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">روابط سريعة</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {setLicenseNumber("LIC001"); handleSearch();}}
+                    className="text-sm"
+                  >
+                    تجربة: LIC001
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {setLicenseNumber("LIC002"); handleSearch();}}
+                    className="text-sm"
+                  >
+                    تجربة: LIC002
+                  </Button>
                 </div>
-
-                {/* Search History */}
-                {searchHistory.length > 0 && (
-                  <div className="border-t pt-4">
-                    <Label className="block text-sm font-medium mb-2">البحث السابق:</Label>
-                    <div className="space-y-1">
-                      {searchHistory.map((license, index) => (
-                        <Button
-                          key={index}
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleHistoryClick(license)}
-                          className="w-full text-left justify-start text-gray-600"
-                        >
-                          <FileText className="h-3 w-3 ml-2" />
-                          {license}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Results Section */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>نتائج البحث</CardTitle>
-                <CardDescription>
-                  بيانات العيادة ومعلومات الترخيص
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin h-12 w-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-6"></div>
-                    <p className="text-gray-600 text-lg">جاري البحث عن البيانات...</p>
-                    <p className="text-gray-500 text-sm mt-2">قد يستغرق هذا بضع ثوانٍ</p>
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>نتائج البحث</CardTitle>
+              <CardDescription>
+                بيانات العيادة ومعلومات الترخيص
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-600">جاري البحث عن البيانات...</p>
+                </div>
+              ) : clinicData ? (
+                <div className="space-y-6">
+                  {/* Status Badge */}
+                  <div className="flex items-center justify-center space-x-2 p-3 rounded-lg bg-gray-50">
+                    {getStatusIcon(clinicData.status)}
+                    <span className={`font-semibold ${getStatusColor(clinicData.status)}`}>
+                      {getStatusText(clinicData.status)}
+                    </span>
                   </div>
-                ) : clinicData ? (
-                  <div className="space-y-6">
-                    {/* Status Badge */}
-                    <div className={`flex items-center justify-center space-x-3 p-4 rounded-lg border-2 ${getStatusColor(clinicData.status)}`}>
-                      {getStatusIcon(clinicData.status)}
-                      <span className="font-bold text-lg">
-                        {getStatusText(clinicData.status)}
-                      </span>
+
+                  {/* QR Code */}
+                  <div className="flex justify-center">
+                    <QRCodeDisplay value={clinicData.licenseNumber} size={150} />
+                  </div>
+
+                  {/* Clinic Information */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">اسم العيادة</Label>
+                      <p className="text-lg font-semibold text-gray-800">{clinicData.name}</p>
                     </div>
 
-                    {/* Clinic Information Card */}
-                    <div className="bg-white border rounded-lg p-6 shadow-sm">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">اسم العيادة</Label>
-                            <p className="text-xl font-bold text-gray-800 mt-1">{clinicData.name}</p>
-                          </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">رقم الترخيص</Label>
+                      <p className="text-gray-800">{clinicData.licenseNumber}</p>
+                    </div>
 
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">رقم الترخيص</Label>
-                            <p className="text-lg font-semibold text-blue-600 mt-1">{clinicData.licenseNumber}</p>
-                          </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">اسم الطبيب</Label>
+                      <p className="text-gray-800">{clinicData.doctorName}</p>
+                    </div>
 
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">اسم الطبيب</Label>
-                            <p className="text-lg text-gray-800 mt-1">{clinicData.doctorName}</p>
-                          </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">التخصص</Label>
+                      <p className="text-gray-800">{clinicData.specialty}</p>
+                    </div>
 
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">التخصص</Label>
-                            <p className="text-lg text-gray-800 mt-1">{clinicData.specialty}</p>
-                          </div>
-                        </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">العنوان</Label>
+                      <p className="text-gray-800">{clinicData.address}</p>
+                    </div>
 
-                        <div className="space-y-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">العنوان</Label>
-                            <p className="text-lg text-gray-800 mt-1">{clinicData.address}</p>
-                          </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">الهاتف</Label>
+                      <p className="text-gray-800" dir="ltr">{clinicData.phone}</p>
+                    </div>
 
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">الهاتف</Label>
-                            <p className="text-lg text-gray-800 mt-1" dir="ltr">{clinicData.phone}</p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">تاريخ الإصدار</Label>
-                              <p className="text-gray-800 mt-1">{clinicData.issueDate}</p>
-                            </div>
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">تاريخ الانتهاء</Label>
-                              <p className="text-gray-800 mt-1">{clinicData.expiryDate}</p>
-                            </div>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-500">تاريخ الإصدار</Label>
+                        <p className="text-gray-800">{clinicData.issueDate}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-500">تاريخ الانتهاء</Label>
+                        <p className="text-gray-800">{clinicData.expiryDate}</p>
                       </div>
                     </div>
-
-                    {/* Additional Actions */}
-                    <div className="flex justify-center space-x-4">
-                      <Button variant="outline" onClick={() => window.print()}>
-                        طباعة البيانات
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          navigator.share?.({
-                            title: 'بيانات العيادة',
-                            text: `${clinicData.name} - ${clinicData.licenseNumber}`,
-                          });
-                        }}
-                      >
-                        مشاركة
-                      </Button>
-                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <Search className="h-20 w-20 mx-auto mb-6 text-gray-300" />
-                    <p className="text-xl mb-2">لم يتم البحث بعد</p>
-                    <p className="text-sm">أدخل رقم الترخيص في الخانة المخصصة للبدء</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+              ) : searched ? (
+                <div className="text-center py-8 text-red-500">
+                  <XCircle className="h-16 w-16 mx-auto mb-4" />
+                  <p className="font-semibold">لم يتم العثور على العيادة</p>
+                  <p className="text-sm text-gray-500">تأكد من رقم الترخيص وحاول مرة أخرى</p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Building2 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <p>أدخل رقم الترخيص للبحث</p>
+                  <p className="text-sm">سيتم عرض بيانات العيادة هنا</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
