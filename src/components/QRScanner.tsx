@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
@@ -110,22 +109,30 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         defaultZoomValueIfSupported: 2,
       };
 
-      // Get available cameras
-      const devices = await Html5Qrcode.getCameras();
-      console.log("Available cameras:", devices);
+      // Get available cameras and select the best one
+      let cameraId: string | { facingMode: string } = { facingMode: "environment" };
+      
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        console.log("Available cameras:", devices);
 
-      // Use back camera if available
-      let cameraId = { facingMode: "environment" };
-      if (devices.length > 0) {
-        const backCamera = devices.find(device => 
-          device.label.toLowerCase().includes('back') || 
-          device.label.toLowerCase().includes('rear')
-        );
-        if (backCamera) {
-          cameraId = backCamera.id;
-        } else {
-          cameraId = devices[0].id;
+        if (devices.length > 0) {
+          // Try to find back camera first
+          const backCamera = devices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear')
+          );
+          
+          if (backCamera) {
+            cameraId = backCamera.id;
+          } else {
+            // Use first available camera
+            cameraId = devices[0].id;
+          }
         }
+      } catch (deviceError) {
+        console.log("Could not get camera list, using default:", deviceError);
+        // Keep the default facingMode fallback
       }
 
       await html5QrCodeRef.current.start(
