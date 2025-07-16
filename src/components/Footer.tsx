@@ -1,9 +1,6 @@
-
 import React from 'react';
-
 const Footer: React.FC = () => {
-  return (
-    <footer className="bg-gray-900 text-white py-8 mt-16">
+  return <footer className="bg-gray-900 text-white py-8 mt-16">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
@@ -27,7 +24,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">معلومات التطوير</h3>
             <div className="space-y-2 text-sm text-gray-300">
-              <p>تطوير: د. بارا صادق</p>
+              <p>تطوير: د. براء صادق</p>
               <p>رئيس لجنة تكنولوجيا المعلومات</p>
               <p>نقابة أطباء الأسنان الأردنية</p>
             </div>
@@ -45,8 +42,6 @@ const Footer: React.FC = () => {
           </p>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
-
 export default Footer;
