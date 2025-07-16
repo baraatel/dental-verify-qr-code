@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Camera, Upload, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useVerifyLicense } from '@/hooks/useClinicData';
 import jsQR from 'jsqr';
 
 interface QRScannerProps {
@@ -20,7 +19,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { verifyLicense } = useVerifyLicense();
 
   useEffect(() => {
     return () => {
@@ -46,7 +44,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     
     try {
       // إيقاف المسح فوراً عند الاكتشاف
-      stopScanning();
+      await stopScanning();
       
       // إرسال النتيجة للمكونة الأب
       onScan(licenseNumber);

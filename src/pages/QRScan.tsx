@@ -18,7 +18,10 @@ const QRScan = () => {
 
   const handleQRScan = async (result: string) => {
     try {
+      console.log('QR Scan result received:', result);
       const verificationResult = await verifyLicense(result, 'qr_scan');
+      console.log('Verification result:', verificationResult);
+      
       setVerificationResult({
         clinic: verificationResult.clinic,
         status: verificationResult.status,
@@ -79,16 +82,14 @@ const QRScan = () => {
       </div>
 
       {/* نافذة النتائج المنبثقة */}
-      {verificationResult && (
-        <VerificationResultDialog
-          open={showResultDialog}
-          onOpenChange={setShowResultDialog}
-          clinic={verificationResult.clinic}
-          status={verificationResult.status}
-          licenseNumber={verificationResult.licenseNumber}
-          onScanAgain={handleScanAgain}
-        />
-      )}
+      <VerificationResultDialog
+        open={showResultDialog}
+        onOpenChange={setShowResultDialog}
+        clinic={verificationResult?.clinic || null}
+        status={verificationResult?.status || 'failed'}
+        licenseNumber={verificationResult?.licenseNumber || ''}
+        onScanAgain={handleScanAgain}
+      />
 
       <Footer />
     </div>
