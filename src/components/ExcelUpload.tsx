@@ -1,212 +1,299 @@
 
-import React, { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 
+interface UploadResult {
+  success: number;
+  failed: number;
+  errors: string[];
+}
+
 const ExcelUpload: React.FC = () => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadResults, setUploadResults] = useState<{
-    total: number;
-    success: number;
-    failed: number;
-    errors: string[];
-  } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<UploadResult | null>(null);
   const { toast } = useToast();
 
-  const generateTemplate = () => {
-    const templateData = [
-      {
-        'اسم العيادة': 'عيادة المثال للأسنان',
-        'رقم الترخيص': 'JOR-DEN-XXX',
-        'اسم الطبيب': 'د. محمد أحمد',
-        'التخصص': 'طب الأسنان العام',
-        'حالة الترخيص': 'active',
-        'تاريخ الإصدار': '2024-01-01',
-        'تاريخ الانتهاء': '2026-01-01',
-        'رقم الهاتف': '+962 6 123 4567',
-        'العنوان': 'عمان، الأردن'
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type.includes('sheet') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+        setFile(selectedFile);
+        setResult(null);
+      } else {
+        toast({
+          title: "نوع ملف غير صحيح",
+          description: "يرجى اختيار ملف Excel (.xlsx أو .xls)",
+          variant: "destructive",
+        });
       }
-    ];
-
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'العيادات');
-    XLSX.writeFile(wb, 'نموذج_العيادات.xlsx');
-
-    toast({
-      title: "تم تحميل النموذج",
-      description: "يمكنك الآن ملء البيانات ورفع الملف",
-    });
+    }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const validateRow = (row: any): string[] => {
+    const errors: string[] = [];
+    
+    if (!row.clinic_name?.trim()) {
+      errors.push('اسم العيادة مطلوب');
+    }
+    
+    if (!row.license_number?.trim()) {
+      errors.push('رقم الترخيص مطلوب');
+    }
+    
+    if (!row.specialization?.trim()) {
+      errors.push('التخصص مطلوب');
+    }
+    
+    // Validate license status
+    const validStatuses = ['active', 'expired', 'suspended', 'pending'];
+    if (row.license_status && !validStatuses.includes(row.license_status)) {
+      errors.push('حالة الترخيص غير صحيحة (active, expired, suspended, pending)');
+    }
+    
+    return errors;
+  };
+
+  const processExcelFile = async () => {
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadResults(null);
+    setUploading(true);
+    setProgress(0);
+    setResult(null);
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const fileBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(fileBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      const results = {
-        total: jsonData.length,
-        success: 0,
-        failed: 0,
-        errors: [] as string[]
-      };
+      if (jsonData.length === 0) {
+        throw new Error('الملف فارغ أو لا يحتوي على بيانات صحيحة');
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+      const errors: string[] = [];
 
       for (let i = 0; i < jsonData.length; i++) {
-        const row: any = jsonData[i];
-        setUploadProgress(((i + 1) / jsonData.length) * 100);
+        const row = jsonData[i] as any;
+        
+        // Update progress
+        setProgress(((i + 1) / jsonData.length) * 100);
+        
+        // Validate row data
+        const rowErrors = validateRow(row);
+        if (rowErrors.length > 0) {
+          failedCount++;
+          errors.push(`الصف ${i + 2}: ${rowErrors.join(', ')}`);
+          continue;
+        }
 
         try {
+          // Prepare clinic data
           const clinicData = {
-            clinic_name: row['اسم العيادة'] || row['clinic_name'],
-            license_number: row['رقم الترخيص'] || row['license_number'],
-            doctor_name: row['اسم الطبيب'] || row['doctor_name'],
-            specialization: row['التخصص'] || row['specialization'],
-            license_status: row['حالة الترخيص'] || row['license_status'] || 'active',
-            issue_date: row['تاريخ الإصدار'] || row['issue_date'],
-            expiry_date: row['تاريخ الانتهاء'] || row['expiry_date'],
-            phone: row['رقم الهاتف'] || row['phone'],
-            address: row['العنوان'] || row['address'],
-            qr_code: row['رقم الترخيص'] || row['license_number'],
+            clinic_name: row.clinic_name?.trim(),
+            license_number: row.license_number?.trim(),
+            doctor_name: row.doctor_name?.trim() || null,
+            specialization: row.specialization?.trim(),
+            license_status: row.license_status?.trim() || 'active',
+            issue_date: row.issue_date ? new Date(row.issue_date).toISOString().split('T')[0] : null,
+            expiry_date: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : null,
+            phone: row.phone?.trim() || null,
+            address: row.address?.trim() || null,
           };
 
-          if (!clinicData.clinic_name || !clinicData.license_number || !clinicData.specialization) {
-            throw new Error(`الصف ${i + 1}: بيانات مطلوبة مفقودة`);
-          }
-
+          // Insert clinic (QR code will be auto-generated by trigger)
           const { error } = await supabase
             .from('clinics')
             .insert(clinicData);
 
           if (error) {
-            throw error;
+            if (error.code === '23505') { // Unique constraint violation
+              failedCount++;
+              errors.push(`الصف ${i + 2}: رقم الترخيص ${clinicData.license_number} موجود مسبقاً`);
+            } else {
+              throw error;
+            }
+          } else {
+            successCount++;
           }
-
-          results.success++;
-        } catch (error) {
-          results.failed++;
-          results.errors.push(`الصف ${i + 1}: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
+        } catch (error: any) {
+          failedCount++;
+          errors.push(`الصف ${i + 2}: ${error.message}`);
         }
 
-        // تأخير صغير لتجنب الضغط على قاعدة البيانات
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay to prevent overwhelming the database
+        if (i % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
-      setUploadResults(results);
-      
-      toast({
-        title: "تم رفع الملف",
-        description: `تم إضافة ${results.success} عيادة بنجاح، فشل في ${results.failed}`,
+      setResult({
+        success: successCount,
+        failed: failedCount,
+        errors: errors.slice(0, 10) // Show only first 10 errors
       });
 
-    } catch (error) {
-      console.error('خطأ في رفع الملف:', error);
+      if (successCount > 0) {
+        toast({
+          title: "تم رفع البيانات بنجاح",
+          description: `تم إضافة ${successCount} عيادة مع أكواد QR تلقائية`,
+        });
+      }
+
+    } catch (error: any) {
+      console.error('Error processing file:', error);
       toast({
-        title: "خطأ في رفع الملف",
-        description: "حدث خطأ أثناء معالجة الملف",
+        title: "خطأ في معالجة الملف",
+        description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
+      setProgress(0);
     }
+  };
 
-    setIsUploading(false);
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        clinic_name: 'عيادة الأسنان النموذجية',
+        license_number: 'JOR-DEN-999',
+        doctor_name: 'د. أحمد محمد',
+        specialization: 'طب الأسنان العام',
+        license_status: 'active',
+        issue_date: '2024-01-01',
+        expiry_date: '2026-01-01',
+        phone: '+962 6 123 4567',
+        address: 'عمان، الأردن'
+      }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    XLSX.utils.book_append_sheet(wb, ws, 'العيادات');
+    XLSX.writeFile(wb, 'قالب_العيادات.xlsx');
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5" />
-          رفع ملف Excel
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-center space-y-4">
-          <Button
-            onClick={generateTemplate}
-            variant="outline"
-            className="w-full"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            تحميل نموذج Excel
-          </Button>
-
-          <div className="text-sm text-gray-600">
-            <p>1. حمل النموذج واملأ البيانات</p>
-            <p>2. احفظ الملف واختره للرفع</p>
-            <p>3. انتظر حتى يتم رفع جميع البيانات</p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" />
+            رفع ملف Excel للعيادات
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                disabled={uploading}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={downloadTemplate}
+              disabled={uploading}
+            >
+              تحميل القالب
+            </Button>
           </div>
 
+          {file && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm">
+                <strong>الملف المحدد:</strong> {file.name}
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                حجم الملف: {(file.size / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+          )}
+
+          {uploading && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>جاري رفع البيانات...</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="w-full" />
+            </div>
+          )}
+
           <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            onClick={processExcelFile}
+            disabled={!file || uploading}
             className="w-full"
           >
             <Upload className="mr-2 h-4 w-4" />
-            {isUploading ? 'جاري الرفع...' : 'اختيار ملف Excel'}
+            {uploading ? 'جاري الرفع...' : 'رفع وإضافة العيادات'}
           </Button>
+        </CardContent>
+      </Card>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-        </div>
-
-        {isUploading && (
-          <div className="space-y-2">
-            <Progress value={uploadProgress} className="w-full" />
-            <p className="text-sm text-center text-gray-600">
-              {uploadProgress.toFixed(0)}% مكتمل
-            </p>
-          </div>
-        )}
-
-        {uploadResults && (
-          <Card className="bg-gray-50">
-            <CardContent className="pt-4">
-              <h4 className="font-semibold mb-2">نتائج الرفع</h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">نجح: {uploadResults.success}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-sm">فشل: {uploadResults.failed}</span>
-                </div>
-                {uploadResults.errors.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-sm font-medium text-red-600">الأخطاء:</p>
-                    <ul className="text-xs text-red-600 list-disc list-inside max-h-32 overflow-y-auto">
-                      {uploadResults.errors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+      {result && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {result.success > 0 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              )}
+              نتائج الرفع
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-green-600">{result.success}</div>
+                <div className="text-sm text-green-700">عيادة تم إضافتها</div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </CardContent>
-    </Card>
+              <div className="bg-red-50 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-red-600">{result.failed}</div>
+                <div className="text-sm text-red-700">عيادة فشلت</div>
+              </div>
+            </div>
+
+            {result.errors.length > 0 && (
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <h4 className="font-medium text-yellow-800 mb-2">الأخطاء:</h4>
+                <ul className="text-sm text-yellow-700 space-y-1">
+                  {result.errors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                  {result.errors.length === 10 && (
+                    <li className="text-xs">... وأخطاء أخرى</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {result.success > 0 && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-blue-700 text-sm">
+                  ✅ تم إنشاء أكواد QR تلقائياً لجميع العيادات المضافة بنجاح
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

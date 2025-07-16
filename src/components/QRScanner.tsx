@@ -29,6 +29,42 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     };
   }, []);
 
+  const parseQRData = (qrText: string) => {
+    try {
+      // Try to parse as JSON first (new format)
+      const qrData = JSON.parse(qrText);
+      if (qrData.type === 'clinic' && qrData.license) {
+        return qrData.license;
+      }
+    } catch {
+      // If not JSON, treat as direct license number (old format)
+      return qrText;
+    }
+    return qrText;
+  };
+
+  const handleQRDetection = async (qrText: string) => {
+    const licenseNumber = parseQRData(qrText);
+    console.log("QR Code detected:", qrText, "License:", licenseNumber);
+    
+    try {
+      await verifyLicense(licenseNumber, 'qr_scan');
+      onScan(licenseNumber);
+      toast({
+        title: "تم مسح الكود بنجاح",
+        description: `رقم الترخيص: ${licenseNumber}`,
+      });
+      stopScanning();
+    } catch (error) {
+      console.error('Verification error:', error);
+      toast({
+        title: "خطأ في التحقق",
+        description: "حدث خطأ أثناء التحقق من البيانات",
+        variant: "destructive",
+      });
+    }
+  };
+
   const startScanning = async () => {
     try {
       setIsScanning(true);
@@ -46,16 +82,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       await html5QrCodeRef.current.start(
         { facingMode: "environment" },
         config,
-        (decodedText) => {
-          console.log("QR Code detected:", decodedText);
-          onScan(decodedText);
-          verifyLicense(decodedText, 'qr_scan');
-          toast({
-            title: "تم مسح الكود بنجاح",
-            description: `رقم الترخيص: ${decodedText}`,
-          });
-          stopScanning();
-        },
+        handleQRDetection,
         (errorMessage) => {
           // تجاهل الأخطاء العادية أثناء المسح
         }
@@ -101,7 +128,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       const ctx = canvas.getContext('2d');
       const img = new Image();
       
-      img.onload = () => {
+      img.onload = async () => {
         canvas.width = img.width;
         canvas.height = img.height;
         ctx?.drawImage(img, 0, 0);
@@ -110,13 +137,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         if (imageData) {
           const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code) {
-            console.log("QR Code detected from image:", code.data);
-            onScan(code.data);
-            verifyLicense(code.data, 'image_upload');
-            toast({
-              title: "تم قراءة الكود من الصورة",
-              description: `رقم الترخيص: ${code.data}`,
-            });
+            await handleQRDetection(code.data);
           } else {
             toast({
               title: "لم يتم العثور على رمز QR",

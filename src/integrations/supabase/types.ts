@@ -120,6 +120,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_clinic_qr: {
+        Args: { license_num: string; clinic_id_param: string }
+        Returns: string
+      }
       generate_qr_code_data: {
         Args: { license_num: string }
         Returns: string
