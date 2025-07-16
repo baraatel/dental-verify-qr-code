@@ -29,3 +29,9 @@ export interface Verification {
   location_data?: any;
   created_at: string;
 }
+
+export interface VerificationResult {
+  clinic: Clinic | null;
+  status: 'success' | 'failed' | 'not_found';
+  licenseNumber: string;
+}

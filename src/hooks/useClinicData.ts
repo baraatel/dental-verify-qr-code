@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Clinic } from "@/types/clinic";
+import { Clinic, VerificationResult } from "@/types/clinic";
 
 export const useClinicData = () => {
   return useQuery({
@@ -17,7 +17,11 @@ export const useClinicData = () => {
         throw error;
       }
 
-      return data || [];
+      // Type assertion to ensure proper typing
+      return (data || []).map(clinic => ({
+        ...clinic,
+        license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending'
+      }));
     },
   });
 };
@@ -26,7 +30,7 @@ export const useVerifyLicense = () => {
   const verifyLicense = async (
     licenseNumber: string,
     method: 'qr_scan' | 'manual_entry' | 'image_upload'
-  ) => {
+  ): Promise<VerificationResult> => {
     console.log(`Verifying license: ${licenseNumber} via ${method}`);
     
     // البحث عن العيادة
@@ -34,7 +38,7 @@ export const useVerifyLicense = () => {
       .from("clinics")
       .select("*")
       .eq("license_number", licenseNumber)
-      .single();
+      .maybeSingle();
 
     const verificationStatus = clinic ? 'success' : 'not_found';
     
@@ -53,10 +57,16 @@ export const useVerifyLicense = () => {
       console.error("Error recording verification:", verificationError);
     }
 
+    // Type assertion for clinic data if it exists
+    const typedClinic = clinic ? {
+      ...clinic,
+      license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending'
+    } : null;
+
     return {
-      clinic,
-      status: verificationStatus,
-      error: clinicError
+      clinic: typedClinic,
+      status: verificationStatus as 'success' | 'failed' | 'not_found',
+      licenseNumber
     };
   };
 
