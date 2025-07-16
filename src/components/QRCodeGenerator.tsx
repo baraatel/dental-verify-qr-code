@@ -69,9 +69,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
             ref={canvasRef}
             className="border border-gray-200 rounded"
           />
-          <p className="text-xs text-gray-600 max-w-[200px] break-all text-center">
-            {value}
-          </p>
           {showDownload && (
             <Button 
               variant="outline" 
