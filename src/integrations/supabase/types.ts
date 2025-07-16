@@ -14,13 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clinics: {
+        Row: {
+          address: string | null
+          clinic_name: string
+          contact_info: Json | null
+          coordinates: unknown | null
+          created_at: string
+          doctor_name: string | null
+          expiry_date: string | null
+          id: string
+          issue_date: string | null
+          license_number: string
+          license_status: string
+          phone: string | null
+          qr_code: string | null
+          specialization: string
+          updated_at: string
+          verification_count: number | null
+        }
+        Insert: {
+          address?: string | null
+          clinic_name: string
+          contact_info?: Json | null
+          coordinates?: unknown | null
+          created_at?: string
+          doctor_name?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          license_number: string
+          license_status?: string
+          phone?: string | null
+          qr_code?: string | null
+          specialization: string
+          updated_at?: string
+          verification_count?: number | null
+        }
+        Update: {
+          address?: string | null
+          clinic_name?: string
+          contact_info?: Json | null
+          coordinates?: unknown | null
+          created_at?: string
+          doctor_name?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          license_number?: string
+          license_status?: string
+          phone?: string | null
+          qr_code?: string | null
+          specialization?: string
+          updated_at?: string
+          verification_count?: number | null
+        }
+        Relationships: []
+      }
+      verifications: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          license_number: string
+          location_data: Json | null
+          user_agent: string | null
+          verification_method: string
+          verification_status: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          license_number: string
+          location_data?: Json | null
+          user_agent?: string | null
+          verification_method: string
+          verification_status: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          license_number?: string
+          location_data?: Json | null
+          user_agent?: string | null
+          verification_method?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verifications_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_qr_code_data: {
+        Args: { license_num: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
