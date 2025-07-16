@@ -95,15 +95,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
               {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600 text-center">
-              بيانات الدخول التجريبية:
-            </p>
-            <p className="text-sm font-mono text-center mt-1">
-              admin / admin
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
