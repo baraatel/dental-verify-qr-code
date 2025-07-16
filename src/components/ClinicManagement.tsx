@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -271,7 +270,7 @@ const ClinicManagement: React.FC = () => {
                     <TableCell>{clinic.doctor_name || '-'}</TableCell>
                     <TableCell>{clinic.specialization}</TableCell>
                     <TableCell>{getStatusBadge(clinic.license_status)}</TableCell>
-                    <TableCell>{clinic.verification_count}</TableCell>
+                    <TableCell className="dir-ltr">{clinic.verification_count}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button
