@@ -45,13 +45,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     console.log("QR Code detected:", qrText, "License:", licenseNumber);
     
     try {
-      await verifyLicense(licenseNumber, 'qr_scan');
+      // إيقاف المسح فوراً عند الاكتشاف
+      stopScanning();
+      
+      // إرسال النتيجة للمكونة الأب
       onScan(licenseNumber);
+      
       toast({
         title: "تم مسح الكود بنجاح",
         description: `رقم الترخيص: ${licenseNumber}`,
       });
-      stopScanning();
     } catch (error) {
       console.error('Verification error:', error);
       toast({

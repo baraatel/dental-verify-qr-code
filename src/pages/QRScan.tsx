@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
-import LicenseVerificationResult from '@/components/LicenseVerificationResult';
+import VerificationResultDialog from '@/components/VerificationResultDialog';
 import { useVerifyLicense } from '@/hooks/useClinicData';
 import Footer from '@/components/Footer';
 
@@ -13,6 +13,7 @@ const QRScan = () => {
     status: 'success' | 'failed' | 'not_found';
     licenseNumber: string;
   } | null>(null);
+  const [showResultDialog, setShowResultDialog] = useState(false);
   const { verifyLicense } = useVerifyLicense();
 
   const handleQRScan = async (result: string) => {
@@ -23,6 +24,7 @@ const QRScan = () => {
         status: verificationResult.status,
         licenseNumber: result
       });
+      setShowResultDialog(true);
     } catch (error) {
       console.error('خطأ في التحقق:', error);
       setVerificationResult({
@@ -30,7 +32,13 @@ const QRScan = () => {
         status: 'failed',
         licenseNumber: result
       });
+      setShowResultDialog(true);
     }
+  };
+
+  const handleScanAgain = () => {
+    setShowResultDialog(false);
+    setVerificationResult(null);
   };
 
   return (
@@ -57,17 +65,6 @@ const QRScan = () => {
           <QRScanner onScan={handleQRScan} />
         </div>
 
-        {/* نتائج التحقق */}
-        {verificationResult && (
-          <div className="max-w-4xl mx-auto">
-            <LicenseVerificationResult
-              clinic={verificationResult.clinic}
-              status={verificationResult.status}
-              licenseNumber={verificationResult.licenseNumber}
-            />
-          </div>
-        )}
-
         {/* تعليمات الاستخدام */}
         <div className="max-w-2xl mx-auto mt-12 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">تعليمات الاستخدام</h2>
@@ -80,6 +77,18 @@ const QRScan = () => {
           </div>
         </div>
       </div>
+
+      {/* نافذة النتائج المنبثقة */}
+      {verificationResult && (
+        <VerificationResultDialog
+          open={showResultDialog}
+          onOpenChange={setShowResultDialog}
+          clinic={verificationResult.clinic}
+          status={verificationResult.status}
+          licenseNumber={verificationResult.licenseNumber}
+          onScanAgain={handleScanAgain}
+        />
+      )}
 
       <Footer />
     </div>
