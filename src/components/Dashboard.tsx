@@ -1,14 +1,32 @@
-
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useClinicData } from '@/hooks/useClinicData';
 import { Building2, FileCheck, AlertTriangle, TrendingUp, QrCode, Search, Upload, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import QRScanner from './QRScanner';
-import LicenseVerificationResult from './LicenseVerificationResult';
-import ExcelUpload from './ExcelUpload';
-import ClinicManagement from './ClinicManagement';
+import { ErrorBoundary } from 'react-error-boundary';
+
+// Lazy load heavy components to prevent initialization issues
+const QRScanner = React.lazy(() => import('./QRScanner'));
+const LicenseVerificationResult = React.lazy(() => import('./LicenseVerificationResult'));
+const ExcelUpload = React.lazy(() => import('./ExcelUpload'));
+const ClinicManagement = React.lazy(() => import('./ClinicManagement'));
+
+const LoadingComponent = () => (
+  <div className="text-center py-4">
+    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
+    <p className="mt-2 text-sm text-gray-600">جاري التحميل...</p>
+  </div>
+);
+
+const ErrorFallback = ({ error, resetErrorBoundary }: any) => (
+  <div className="text-center py-8">
+    <p className="text-red-600 mb-4">حدث خطأ في تحميل المحتوى</p>
+    <Button onClick={resetErrorBoundary} variant="outline">
+      إعادة المحاولة
+    </Button>
+  </div>
+);
 
 const Dashboard: React.FC = () => {
   const { data: clinics = [], isLoading } = useClinicData();
@@ -51,14 +69,22 @@ const Dashboard: React.FC = () => {
           </Button>
         </div>
         
-        <QRScanner onScan={handleQRScan} />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Suspense fallback={<LoadingComponent />}>
+            <QRScanner onScan={handleQRScan} />
+          </Suspense>
+        </ErrorBoundary>
         
         {verificationResult && (
-          <LicenseVerificationResult
-            clinic={verificationResult.clinic}
-            status={verificationResult.status}
-            licenseNumber={verificationResult.licenseNumber}
-          />
+          <ErrorBoundary FallbackComponent={ErrorFallback}>
+            <Suspense fallback={<LoadingComponent />}>
+              <LicenseVerificationResult
+                clinic={verificationResult.clinic}
+                status={verificationResult.status}
+                licenseNumber={verificationResult.licenseNumber}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
       </div>
     );
@@ -74,7 +100,11 @@ const Dashboard: React.FC = () => {
           </Button>
         </div>
         
-        <ExcelUpload />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Suspense fallback={<LoadingComponent />}>
+            <ExcelUpload />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
@@ -89,7 +119,11 @@ const Dashboard: React.FC = () => {
           </Button>
         </div>
         
-        <ClinicManagement />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Suspense fallback={<LoadingComponent />}>
+            <ClinicManagement />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
@@ -236,10 +270,7 @@ const Dashboard: React.FC = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
-              <p className="mt-2 text-sm text-gray-600">جاري التحميل...</p>
-            </div>
+            <LoadingComponent />
           ) : (
             <div className="space-y-3">
               {clinics.slice(0, 5).map((clinic) => (
