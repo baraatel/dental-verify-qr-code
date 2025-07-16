@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Camera, Upload, X } from 'lucide-react';
+import { Camera, Upload, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVerifyLicense } from '@/hooks/useClinicData';
 import jsQR from 'jsqr';
@@ -15,7 +15,7 @@ interface QRScannerProps {
 
 const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
-  const [scannerReady, setScannerReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const qrCodeRegionId = "qr-reader";
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -31,13 +31,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
   const parseQRData = (qrText: string) => {
     try {
-      // Try to parse as JSON first (new format)
       const qrData = JSON.parse(qrText);
       if (qrData.type === 'clinic' && qrData.license) {
         return qrData.license;
       }
     } catch {
-      // If not JSON, treat as direct license number (old format)
       return qrText;
     }
     return qrText;
@@ -65,42 +63,108 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     }
   };
 
+  const requestCameraPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Stop the stream immediately as we just want to check permission
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error("Camera permission error:", error);
+      setCameraError("تم رفض الوصول للكاميرا. يرجى السماح بالوصول للكاميرا في إعدادات المتصفح.");
+      return false;
+    }
+  };
+
   const startScanning = async () => {
     try {
+      setCameraError(null);
       setIsScanning(true);
-      
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
+
+      // Check camera permission first
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        setIsScanning(false);
+        return;
       }
+
+      // Clean up any existing scanner
+      if (html5QrCodeRef.current) {
+        try {
+          await html5QrCodeRef.current.stop();
+          html5QrCodeRef.current.clear();
+        } catch (e) {
+          console.log("Scanner cleanup error (expected):", e);
+        }
+      }
+
+      // Create new scanner instance
+      html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
 
       const config = {
         fps: 10,
         qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0,
+        showTorchButtonIfSupported: true,
+        showZoomSliderIfSupported: true,
+        defaultZoomValueIfSupported: 2,
       };
 
+      // Get available cameras
+      const devices = await Html5Qrcode.getCameras();
+      console.log("Available cameras:", devices);
+
+      // Use back camera if available
+      let cameraId = { facingMode: "environment" };
+      if (devices.length > 0) {
+        const backCamera = devices.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear')
+        );
+        if (backCamera) {
+          cameraId = backCamera.id;
+        } else {
+          cameraId = devices[0].id;
+        }
+      }
+
       await html5QrCodeRef.current.start(
-        { facingMode: "environment" },
+        cameraId,
         config,
         handleQRDetection,
         (errorMessage) => {
-          // تجاهل الأخطاء العادية أثناء المسح
+          // Ignore frequent scan errors
+          if (!errorMessage.includes('NotFoundException')) {
+            console.log("QR scan error:", errorMessage);
+          }
         }
       );
 
-      setScannerReady(true);
       toast({
         title: "الكاميرا جاهزة",
         description: "وجه الكاميرا نحو رمز QR للمسح",
       });
-    } catch (err) {
+
+    } catch (err: any) {
       console.error("خطأ في بدء المسح:", err);
+      setIsScanning(false);
+      
+      let errorMessage = "تأكد من منح الإذن للوصول للكاميرا";
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = "تم رفض الوصول للكاميرا. يرجى السماح بالوصول في إعدادات المتصفح.";
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = "لم يتم العثور على كاميرا. تأكد من وجود كاميرا متصلة بالجهاز.";
+      } else if (err.name === 'NotSupportedError') {
+        errorMessage = "المتصفح لا يدعم الوصول للكاميرا. جرب متصفح آخر.";
+      }
+      
+      setCameraError(errorMessage);
       toast({
         title: "خطأ في الكاميرا",
-        description: "تأكد من منح الإذن للوصول للكاميرا",
+        description: errorMessage,
         variant: "destructive",
       });
-      setIsScanning(false);
     }
   };
 
@@ -114,7 +178,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       console.error("خطأ في إيقاف المسح:", err);
     }
     setIsScanning(false);
-    setScannerReady(false);
+    setCameraError(null);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +212,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         }
       };
       
+      img.onerror = () => {
+        toast({
+          title: "خطأ في قراءة الصورة",
+          description: "تأكد من أن الملف صورة صالحة",
+          variant: "destructive",
+        });
+      };
+      
       img.src = URL.createObjectURL(file);
     } catch (error) {
       console.error("خطأ في قراءة الصورة:", error);
@@ -172,19 +244,25 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       <CardContent className="space-y-4">
         <div
           id={qrCodeRegionId}
-          className="w-full h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center"
+          className="w-full h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden"
         >
-          {!isScanning && (
-            <div className="text-center text-gray-500">
+          {!isScanning && !cameraError && (
+            <div className="text-center text-gray-500 p-4">
               <Camera className="mx-auto h-12 w-12 mb-2" />
               <p>اضغط على "بدء المسح" لتشغيل الكاميرا</p>
+            </div>
+          )}
+          {cameraError && (
+            <div className="text-center text-red-500 p-4">
+              <AlertCircle className="mx-auto h-12 w-12 mb-2" />
+              <p className="text-sm">{cameraError}</p>
             </div>
           )}
         </div>
 
         <div className="flex gap-2">
           {!isScanning ? (
-            <Button onClick={startScanning} className="flex-1">
+            <Button onClick={startScanning} className="flex-1" disabled={!!cameraError}>
               <Camera className="mr-2 h-4 w-4" />
               بدء المسح
             </Button>
@@ -216,6 +294,18 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           <p className="text-sm text-gray-600 text-center">
             تم تحديد: {selectedFile.name}
           </p>
+        )}
+
+        {cameraError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
+            <p className="font-medium text-red-800 mb-1">نصائح لحل مشكلة الكاميرا:</p>
+            <ul className="text-red-700 space-y-1 text-xs">
+              <li>• تأكد من السماح للموقع بالوصول للكاميرا</li>
+              <li>• أعد تحميل الصفحة وجرب مرة أخرى</li>
+              <li>• تأكد من عدم استخدام تطبيق آخر للكاميرا</li>
+              <li>• يمكنك رفع صورة للرمز بدلاً من المسح المباشر</li>
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>
