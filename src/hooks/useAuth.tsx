@@ -32,40 +32,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
-  const checkAdminStatus = async (): Promise<boolean> => {
-    if (!session?.user) {
-      console.log('No session user, returning false for admin status');
+  const checkAdminStatus = async (sessionToCheck?: Session | null): Promise<boolean> => {
+    const currentSession = sessionToCheck || session;
+    
+    if (!currentSession?.user) {
+      console.log('No session user available for admin check');
       return false;
     }
     
     try {
-      console.log('Checking admin status for user:', session.user.id);
+      console.log('Checking admin status for user:', currentSession.user.id);
       
-      // First check the is_admin function
-      const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin');
-      console.log('is_admin function result:', isAdminData, 'error:', isAdminError);
+      // Check profiles table directly for admin role
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', currentSession.user.id)
+        .single();
       
-      if (isAdminError) {
-        console.error('Error calling is_admin function:', isAdminError);
-        
-        // Fallback: check profiles table directly
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        
-        console.log('Profile data:', profileData, 'error:', profileError);
-        
-        if (profileError) {
-          console.error('Error checking profile:', profileError);
-          return false;
-        }
-        
-        return profileData?.role === 'admin';
+      console.log('Profile data:', profileData, 'error:', profileError);
+      
+      if (profileError) {
+        console.error('Error checking profile:', profileError);
+        return false;
       }
       
-      return isAdminData || false;
+      const isAdminUser = profileData?.role === 'admin';
+      console.log('User is admin:', isAdminUser);
+      return isAdminUser;
     } catch (error) {
       console.error('Error checking admin status:', error);
       return false;
@@ -81,38 +75,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to avoid blocking the auth state change
-          setTimeout(async () => {
-            console.log('Checking admin status after auth change...');
-            const adminStatus = await checkAdminStatus();
-            console.log('Admin status result:', adminStatus);
-            setIsAdmin(adminStatus);
-            setIsLoading(false);
-          }, 100);
+          // Check admin status with the new session
+          console.log('Checking admin status after auth change...');
+          const adminStatus = await checkAdminStatus(session);
+          console.log('Admin status result:', adminStatus);
+          setIsAdmin(adminStatus);
         } else {
           setIsAdmin(false);
-          setIsLoading(false);
         }
+        setIsLoading(false);
       }
     );
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log('Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        setTimeout(async () => {
-          console.log('Checking admin status on initial load...');
-          const adminStatus = await checkAdminStatus();
-          console.log('Initial admin status result:', adminStatus);
-          setIsAdmin(adminStatus);
-          setIsLoading(false);
-        }, 100);
-      } else {
-        setIsLoading(false);
+        console.log('Checking admin status on initial load...');
+        const adminStatus = await checkAdminStatus(session);
+        console.log('Initial admin status result:', adminStatus);
+        setIsAdmin(adminStatus);
       }
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
