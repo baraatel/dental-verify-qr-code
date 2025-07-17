@@ -4,31 +4,29 @@ import Dashboard from '@/components/Dashboard';
 import Footer from '@/components/Footer';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { LogOut, User, Shield } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const AdminContent = () => {
-  const { toast } = useToast();
+  const { signOut, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminLoggedIn');
-    localStorage.removeItem('adminLoginTime');
-    toast({
-      title: "تم تسجيل الخروج بنجاح",
-      description: "نراك قريباً",
-    });
-    // إعادة تحميل الصفحة لإظهار شاشة تسجيل الدخول
-    window.location.reload();
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* شريط علوي للإدارة */}
+      {/* Admin header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-blue-600" />
-            <span className="font-medium text-gray-900">لوحة تحكم الإدارة</span>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-full">
+              <Shield className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <span className="font-medium text-gray-900">لوحة تحكم الإدارة</span>
+              <p className="text-sm text-gray-500">مرحباً، {user?.email}</p>
+            </div>
           </div>
           <Button
             variant="outline"
@@ -52,7 +50,7 @@ const AdminContent = () => {
 
 const Admin = () => {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requireAdmin={true}>
       <AdminContent />
     </ProtectedRoute>
   );
