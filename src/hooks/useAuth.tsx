@@ -33,15 +33,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   const checkAdminStatus = async (): Promise<boolean> => {
-    if (!session?.user) return false;
+    if (!session?.user) {
+      console.log('No session user, returning false for admin status');
+      return false;
+    }
     
     try {
-      const { data, error } = await supabase.rpc('is_admin');
-      if (error) {
-        console.error('Error checking admin status:', error);
-        return false;
+      console.log('Checking admin status for user:', session.user.id);
+      
+      // First check the is_admin function
+      const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin');
+      console.log('is_admin function result:', isAdminData, 'error:', isAdminError);
+      
+      if (isAdminError) {
+        console.error('Error calling is_admin function:', isAdminError);
+        
+        // Fallback: check profiles table directly
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        
+        console.log('Profile data:', profileData, 'error:', profileError);
+        
+        if (profileError) {
+          console.error('Error checking profile:', profileError);
+          return false;
+        }
+        
+        return profileData?.role === 'admin';
       }
-      return data || false;
+      
+      return isAdminData || false;
     } catch (error) {
       console.error('Error checking admin status:', error);
       return false;
@@ -52,34 +76,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, 'session exists:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check admin status after setting user
+          // Use setTimeout to avoid blocking the auth state change
           setTimeout(async () => {
+            console.log('Checking admin status after auth change...');
             const adminStatus = await checkAdminStatus();
+            console.log('Admin status result:', adminStatus);
             setIsAdmin(adminStatus);
-          }, 0);
+            setIsLoading(false);
+          }, 100);
         } else {
           setIsAdmin(false);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         setTimeout(async () => {
+          console.log('Checking admin status on initial load...');
           const adminStatus = await checkAdminStatus();
+          console.log('Initial admin status result:', adminStatus);
           setIsAdmin(adminStatus);
           setIsLoading(false);
-        }, 0);
+        }, 100);
       } else {
         setIsLoading(false);
       }
