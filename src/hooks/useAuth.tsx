@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -32,27 +32,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
-  const checkAdminStatus = async (sessionToCheck?: Session | null): Promise<boolean> => {
-    const currentSession = sessionToCheck || session;
+  const checkAdminStatus = useCallback(async (currentSession?: Session | null): Promise<boolean> => {
+    const sessionToCheck = currentSession || session;
     
-    if (!currentSession?.user) {
+    if (!sessionToCheck?.user) {
       console.log('No session user available for admin check');
       return false;
     }
     
     try {
-      console.log('Checking admin status for user:', currentSession.user.id);
+      console.log('Checking admin status for user:', sessionToCheck.user.id);
       
-      // Check profiles table directly for admin role
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', currentSession.user.id)
+        .eq('id', sessionToCheck.user.id)
         .single();
       
       console.log('Profile data:', profileData, 'error:', profileError);
       
-      if (profileError) {
+      if (profileError && profileError.code !== 'PGRST116') {
         console.error('Error checking profile:', profileError);
         return false;
       }
@@ -64,75 +63,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error checking admin status:', error);
       return false;
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('Auth state changed:', event, 'session exists:', !!session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Check admin status with the new session
-          console.log('Checking admin status after auth change...');
-          try {
-            const adminStatus = await checkAdminStatus(session);
-            console.log('Admin status result:', adminStatus);
-            if (mounted) {
-              setIsAdmin(adminStatus);
-            }
-          } catch (error) {
-            console.error('Error checking admin status:', error);
-            if (mounted) {
-              setIsAdmin(false);
-            }
+    const handleAuthStateChange = async (event: string, currentSession: Session | null) => {
+      if (!mounted) return;
+      
+      console.log('Auth state changed:', event, 'session exists:', !!currentSession);
+      
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (currentSession?.user) {
+        console.log('Checking admin status after auth change...');
+        try {
+          const adminStatus = await checkAdminStatus(currentSession);
+          console.log('Admin status result:', adminStatus);
+          if (mounted) {
+            setIsAdmin(adminStatus);
           }
-        } else {
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          if (mounted) {
+            setIsAdmin(false);
+          }
+        }
+      } else {
+        if (mounted) {
           setIsAdmin(false);
         }
-        
-        if (mounted) {
-          setIsLoading(false);
-        }
       }
-    );
+      
+      if (mounted) {
+        setIsLoading(false);
+      }
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     // Get initial session
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Initial session check:', !!session);
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('Initial session check:', !!initialSession);
         
         if (!mounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log('Checking admin status on initial load...');
-          try {
-            const adminStatus = await checkAdminStatus(session);
-            console.log('Initial admin status result:', adminStatus);
-            if (mounted) {
-              setIsAdmin(adminStatus);
-            }
-          } catch (error) {
-            console.error('Error checking admin status on init:', error);
-            if (mounted) {
-              setIsAdmin(false);
-            }
-          }
-        }
-        
-        if (mounted) {
-          setIsLoading(false);
-        }
+        await handleAuthStateChange('INITIAL_SESSION', initialSession);
       } catch (error) {
         console.error('Error initializing auth:', error);
         if (mounted) {
@@ -147,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [checkAdminStatus]);
 
   const signIn = async (email: string, password: string) => {
     try {

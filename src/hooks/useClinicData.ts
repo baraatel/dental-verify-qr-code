@@ -33,7 +33,7 @@ export const useVerifyLicense = () => {
     licenseNumber: string,
     method: 'qr_scan' | 'manual_entry' | 'image_upload'
   ): Promise<VerificationResult> => {
-    console.log(`Verifying license: ${licenseNumber} via ${method}`);
+    console.log(`Starting verification for license: ${licenseNumber} via ${method}`);
     
     // Sanitize license number input
     const sanitizedLicenseNumber = licenseNumber.trim().toUpperCase();
@@ -48,12 +48,8 @@ export const useVerifyLicense = () => {
     }
 
     try {
-      // Check rate limiting (if available)
-      const clientIP = await fetch('https://api.ipify.org?format=json')
-        .then(response => response.json())
-        .then(data => data.ip)
-        .catch(() => '0.0.0.0');
-
+      console.log('Searching for clinic with license number:', sanitizedLicenseNumber);
+      
       // Search for clinic
       const { data: clinic, error: clinicError } = await supabase
         .from("clinics")
@@ -61,18 +57,32 @@ export const useVerifyLicense = () => {
         .eq("license_number", sanitizedLicenseNumber)
         .maybeSingle();
 
+      console.log('Clinic search result:', { clinic, error: clinicError });
+
       if (clinicError) {
         console.error("Error searching for clinic:", clinicError);
         throw new Error("خطأ في البحث عن العيادة");
       }
 
       const verificationStatus = clinic ? 'success' : 'not_found';
+      console.log('Verification status:', verificationStatus);
+      
+      // Get client IP for logging
+      let clientIP = '0.0.0.0';
+      try {
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipResponse.json();
+        clientIP = ipData.ip;
+      } catch (ipError) {
+        console.warn('Could not fetch IP address:', ipError);
+      }
       
       // Record verification attempt
+      console.log('Recording verification attempt...');
       const { error: verificationError } = await supabase
         .from("verifications")
         .insert({
-          clinic_id: clinic?.id,
+          clinic_id: clinic?.id || null,
           license_number: sanitizedLicenseNumber,
           verification_method: method,
           verification_status: verificationStatus,
@@ -83,6 +93,8 @@ export const useVerifyLicense = () => {
       if (verificationError) {
         console.error("Error recording verification:", verificationError);
         // Don't throw error here as verification recording is not critical
+      } else {
+        console.log('Verification recorded successfully');
       }
 
       // Type assertion for clinic data if it exists
@@ -91,11 +103,14 @@ export const useVerifyLicense = () => {
         license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending'
       } : null;
 
-      return {
+      const result = {
         clinic: typedClinic,
         status: verificationStatus as 'success' | 'failed' | 'not_found',
         licenseNumber: sanitizedLicenseNumber
       };
+
+      console.log('Final verification result:', result);
+      return result;
     } catch (error: any) {
       console.error("Verification error:", error);
       
