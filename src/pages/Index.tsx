@@ -76,6 +76,30 @@ const Index = () => {
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             تحقق من صحة تراخيص العيادات الطبية في الأردن بسهولة وأمان
           </p>
+
+          {/* Admin Quick Access - يظهر فقط للمدراء */}
+          {user && isAdmin && (
+            <div className="mb-12">
+              <Card className="max-w-md mx-auto bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                <CardHeader className="text-center">
+                  <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
+                    <Settings className="h-6 w-6" />
+                    وصول سريع للإدارة
+                  </CardTitle>
+                  <CardDescription className="text-blue-600">
+                    أدر النظام وتحكم في العيادات والتراخيص
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link to="/admin">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      دخول لوحة التحكم
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">

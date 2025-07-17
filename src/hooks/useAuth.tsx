@@ -67,9 +67,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         console.log('Auth state changed:', event, 'session exists:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
@@ -77,32 +81,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           // Check admin status with the new session
           console.log('Checking admin status after auth change...');
-          const adminStatus = await checkAdminStatus(session);
-          console.log('Admin status result:', adminStatus);
-          setIsAdmin(adminStatus);
+          try {
+            const adminStatus = await checkAdminStatus(session);
+            console.log('Admin status result:', adminStatus);
+            if (mounted) {
+              setIsAdmin(adminStatus);
+            }
+          } catch (error) {
+            console.error('Error checking admin status:', error);
+            if (mounted) {
+              setIsAdmin(false);
+            }
+          }
         } else {
           setIsAdmin(false);
         }
-        setIsLoading(false);
+        
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     );
 
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('Initial session check:', !!session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        console.log('Checking admin status on initial load...');
-        const adminStatus = await checkAdminStatus(session);
-        console.log('Initial admin status result:', adminStatus);
-        setIsAdmin(adminStatus);
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Initial session check:', !!session);
+        
+        if (!mounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log('Checking admin status on initial load...');
+          try {
+            const adminStatus = await checkAdminStatus(session);
+            console.log('Initial admin status result:', adminStatus);
+            if (mounted) {
+              setIsAdmin(adminStatus);
+            }
+          } catch (error) {
+            console.error('Error checking admin status on init:', error);
+            if (mounted) {
+              setIsAdmin(false);
+            }
+          }
+        }
+        
+        if (mounted) {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
