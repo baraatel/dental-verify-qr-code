@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Search, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVerifyLicense } from '@/hooks/useClinicData';
 import LicenseVerificationResult from '@/components/LicenseVerificationResult';
@@ -31,13 +31,9 @@ const LicenseCheck = () => {
     }
 
     setIsChecking(true);
-    setVerificationResult(null); // Clear previous results
 
     try {
-      console.log('Starting verification for license:', licenseNumber.trim());
       const result = await verifyLicense(licenseNumber.trim(), 'manual_entry');
-      console.log('Verification result:', result);
-      
       setVerificationResult({
         clinic: result.clinic,
         status: result.status,
@@ -60,9 +56,9 @@ const LicenseCheck = () => {
         status: 'failed',
         licenseNumber: licenseNumber.trim()
       });
-    } finally {
-      setIsChecking(false);
     }
+
+    setIsChecking(false);
   };
 
   const resetSearch = () => {
@@ -106,8 +102,7 @@ const LicenseCheck = () => {
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   className="text-center font-mono text-lg"
-                  onKeyPress={(e) => e.key === 'Enter' && !isChecking && handleVerification()}
-                  disabled={isChecking}
+                  onKeyPress={(e) => e.key === 'Enter' && handleVerification()}
                 />
                 <p className="text-xs text-gray-500 text-center">
                   يجب أن يكون رقم الترخيص بالصيغة: JOR-DEN-XXX
@@ -117,7 +112,7 @@ const LicenseCheck = () => {
               <div className="flex gap-3">
                 <Button 
                   onClick={handleVerification}
-                  disabled={isChecking || !licenseNumber.trim()}
+                  disabled={isChecking}
                   className="flex-1"
                 >
                   {isChecking ? (
@@ -133,7 +128,7 @@ const LicenseCheck = () => {
                   )}
                 </Button>
                 
-                {(verificationResult || licenseNumber.trim()) && !isChecking && (
+                {verificationResult && (
                   <Button 
                     variant="outline"
                     onClick={resetSearch}
@@ -147,27 +142,13 @@ const LicenseCheck = () => {
         </div>
 
         {/* نتائج التحقق */}
-        {verificationResult && !isChecking && (
+        {verificationResult && (
           <div className="max-w-4xl mx-auto mb-8">
             <LicenseVerificationResult
               clinic={verificationResult.clinic}
               status={verificationResult.status}
               licenseNumber={verificationResult.licenseNumber}
             />
-          </div>
-        )}
-
-        {/* رسالة التحميل */}
-        {isChecking && (
-          <div className="max-w-2xl mx-auto mb-8">
-            <Card className="bg-blue-50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center gap-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                  <span className="text-blue-700 font-medium">جاري التحقق من الترخيص...</span>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
