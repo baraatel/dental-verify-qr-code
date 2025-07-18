@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,6 @@ const ClinicManagement: React.FC = () => {
   
   const itemsPerPage = 10;
 
-  // Get unique specializations for filter options
   const uniqueSpecializations = Array.from(new Set(
     clinics
       .map(clinic => clinic.specialization)
@@ -169,12 +167,12 @@ const ClinicManagement: React.FC = () => {
 
   if (showDetails && selectedClinic) {
     return (
-      <Card className="w-full max-w-6xl mx-auto">
+      <Card className="w-full max-w-6xl mx-auto" dir="rtl">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>تفاصيل العيادة</CardTitle>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => handleEditClick(selectedClinic)}>
-              <Edit className="h-4 w-4 mr-2" />
+              <Edit className="h-4 w-4 ml-2" />
               تعديل
             </Button>
             <Button variant="outline" onClick={() => setShowDetails(false)}>
@@ -186,64 +184,66 @@ const ClinicManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               <div>
-                <h3 className="text-lg font-semibold">{selectedClinic.clinic_name}</h3>
-                <p className="text-gray-600">{selectedClinic.specialization}</p>
-                {getStatusBadge(selectedClinic.license_status)}
+                <h3 className="text-lg font-semibold text-right">{selectedClinic.clinic_name}</h3>
+                <p className="text-gray-600 text-right">{selectedClinic.specialization}</p>
+                <div className="flex justify-end mt-2">
+                  {getStatusBadge(selectedClinic.license_status)}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">رقم الترخيص:</span>
+                  <div className="flex items-center gap-2 justify-end">
                     <span className="font-mono">{selectedClinic.license_number}</span>
+                    <span className="font-medium">:رقم الترخيص</span>
                   </div>
                   
                   {selectedClinic.doctor_name && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">اسم الطبيب:</span>
+                    <div className="flex items-center gap-2 justify-end">
                       <span>{selectedClinic.doctor_name}</span>
+                      <span className="font-medium">:اسم الطبيب</span>
                     </div>
                   )}
 
                   {selectedClinic.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-500" />
+                    <div className="flex items-center gap-2 justify-end">
                       <span>{selectedClinic.phone}</span>
+                      <Phone className="h-4 w-4 text-gray-500" />
                     </div>
                   )}
 
                   {selectedClinic.address && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-gray-500" />
+                    <div className="flex items-center gap-2 justify-end">
                       <span>{selectedClinic.address}</span>
+                      <MapPin className="h-4 w-4 text-gray-500" />
                     </div>
                   )}
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <h4 className="font-medium">معلومات الترخيص</h4>
+                  <h4 className="font-medium text-right">معلومات الترخيص</h4>
                   
                   {selectedClinic.issue_date && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
+                    <div className="flex items-center gap-2 justify-end">
                       <span className="text-sm">
-                        تاريخ الإصدار: {new Date(selectedClinic.issue_date).toLocaleDateString('ar-JO')}
+                        {new Date(selectedClinic.issue_date).toLocaleDateString('ar-JO')} :تاريخ الإصدار
                       </span>
+                      <Calendar className="h-4 w-4 text-gray-500" />
                     </div>
                   )}
 
                   {selectedClinic.expiry_date && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
+                    <div className="flex items-center gap-2 justify-end">
                       <span className="text-sm">
-                        تاريخ الانتهاء: {new Date(selectedClinic.expiry_date).toLocaleDateString('ar-JO')}
+                        {new Date(selectedClinic.expiry_date).toLocaleDateString('ar-JO')} :تاريخ الانتهاء
                       </span>
+                      <Calendar className="h-4 w-4 text-gray-500" />
                     </div>
                   )}
 
-                  <div className="text-sm">
-                    <span className="font-medium">عدد مرات التحقق: </span>
+                  <div className="text-sm text-right">
                     <span>{selectedClinic.verification_count}</span>
+                    <span className="font-medium"> :عدد مرات التحقق</span>
                   </div>
                 </div>
               </div>
@@ -266,7 +266,7 @@ const ClinicManagement: React.FC = () => {
 
   return (
     <>
-      <Card className="w-full">
+      <Card className="w-full" dir="rtl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>إدارة العيادات</span>
@@ -281,12 +281,12 @@ const ClinicManagement: React.FC = () => {
           <div className="space-y-4">
             <div className="flex gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="البحث عن العيادات..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pr-10 text-right"
                 />
               </div>
               <Button
@@ -309,10 +309,10 @@ const ClinicManagement: React.FC = () => {
                     مسح جميع البيانات
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent dir="rtl">
                   <AlertDialogHeader>
                     <AlertDialogTitle>تأكيد مسح جميع البيانات</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogDescription className="text-right">
                       هل أنت متأكد من حذف جميع العيادات من قاعدة البيانات؟ 
                       سيتم حذف {clinics.length} عيادة وجميع البيانات المرتبطة بها.
                       <br /><br />
@@ -336,8 +336,8 @@ const ClinicManagement: React.FC = () => {
             {/* Filters Row */}
             <div className="flex gap-4 items-center">
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-500" />
                 <span className="text-sm font-medium text-gray-700">فلترة:</span>
+                <Filter className="h-4 w-4 text-gray-500" />
               </div>
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -415,7 +415,7 @@ const ClinicManagement: React.FC = () => {
             )}
 
             {/* Results Summary */}
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 text-right">
               عرض {filteredClinics.length} من أصل {clinics.length} عيادة
               {hasActiveFilters && ' (مفلترة)'}
             </div>
@@ -425,26 +425,26 @@ const ClinicManagement: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>اسم العيادة</TableHead>
-                  <TableHead>رقم الترخيص</TableHead>
-                  <TableHead>الطبيب</TableHead>
-                  <TableHead>التخصص</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead>عدد التحقق</TableHead>
-                  <TableHead>الإجراءات</TableHead>
+                  <TableHead className="text-right">اسم العيادة</TableHead>
+                  <TableHead className="text-right">رقم الترخيص</TableHead>
+                  <TableHead className="text-right">الطبيب</TableHead>
+                  <TableHead className="text-right">التخصص</TableHead>
+                  <TableHead className="text-right">الحالة</TableHead>
+                  <TableHead className="text-right">عدد التحقق</TableHead>
+                  <TableHead className="text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentClinics.map((clinic) => (
                   <TableRow key={clinic.id}>
-                    <TableCell className="font-medium">{clinic.clinic_name}</TableCell>
-                    <TableCell className="font-mono">{clinic.license_number}</TableCell>
-                    <TableCell>{clinic.doctor_name || '-'}</TableCell>
-                    <TableCell>{clinic.specialization}</TableCell>
-                    <TableCell>{getStatusBadge(clinic.license_status)}</TableCell>
-                    <TableCell className="dir-ltr">{clinic.verification_count}</TableCell>
+                    <TableCell className="font-medium text-right">{clinic.clinic_name}</TableCell>
+                    <TableCell className="font-mono text-right">{clinic.license_number}</TableCell>
+                    <TableCell className="text-right">{clinic.doctor_name || '-'}</TableCell>
+                    <TableCell className="text-right">{clinic.specialization}</TableCell>
+                    <TableCell className="text-right">{getStatusBadge(clinic.license_status)}</TableCell>
+                    <TableCell className="text-right">{clinic.verification_count}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 justify-end">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -467,10 +467,10 @@ const ClinicManagement: React.FC = () => {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent dir="rtl">
                             <AlertDialogHeader>
                               <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                              <AlertDialogDescription>
+                              <AlertDialogDescription className="text-right">
                                 هل أنت متأكد من حذف عيادة "{clinic.clinic_name}"؟ 
                                 لا يمكن التراجع عن هذا الإجراء.
                               </AlertDialogDescription>
