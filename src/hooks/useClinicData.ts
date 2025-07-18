@@ -11,29 +11,41 @@ export const useClinicData = () => {
   const query = useQuery({
     queryKey: ["clinics"],
     queryFn: async (): Promise<Clinic[]> => {
-      const { data, error } = await supabase
-        .from("clinics")
-        .select("*")
-        .order("created_at", { ascending: false });
+      console.log('Fetching clinics data...');
+      
+      try {
+        const { data, error } = await supabase
+          .from("clinics")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching clinics:", error);
+        console.log('Clinics query result:', { data: data?.length, error });
+
+        if (error) {
+          console.error("Error fetching clinics:", error);
+          throw new Error(`خطأ في جلب البيانات: ${error.message}`);
+        }
+
+        // Type assertion to ensure proper typing
+        const typedClinics = (data || []).map(clinic => ({
+          ...clinic,
+          license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending',
+          verification_count: clinic.verification_count || 0
+        }));
+
+        console.log('Successfully fetched clinics:', typedClinics.length);
+        return typedClinics;
+      } catch (error) {
+        console.error('Error in clinic query:', error);
         throw error;
       }
-
-      // Type assertion to ensure proper typing
-      return (data || []).map(clinic => ({
-        ...clinic,
-        license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending'
-      }));
     },
-    // Mobile-optimized configuration
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     retry: (failureCount, error) => {
-      // Retry up to 3 times for network errors on mobile
-      if (failureCount < 3 && navigator.onLine !== false) {
+      console.log('Query retry attempt:', failureCount, error);
+      if (failureCount < 3) {
         return true;
       }
       return false;

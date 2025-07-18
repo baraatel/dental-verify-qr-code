@@ -4,7 +4,7 @@ import Dashboard from '@/components/Dashboard';
 import Footer from '@/components/Footer';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,6 +13,7 @@ const AdminContent = () => {
 
   const handleLogout = async () => {
     try {
+      console.log('Admin logout initiated');
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -24,7 +25,8 @@ const AdminContent = () => {
         description: "نراك قريباً",
       });
       
-      // The auth state change listener in ProtectedRoute will handle the redirect
+      // Force page reload to clear all state
+      window.location.reload();
     } catch (error: any) {
       console.error('Logout error:', error);
       toast({
@@ -33,6 +35,10 @@ const AdminContent = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
   };
 
   return (
@@ -44,15 +50,26 @@ const AdminContent = () => {
             <User className="h-5 w-5 text-blue-600" />
             <span className="font-medium text-gray-900">لوحة تحكم الإدارة</span>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            className="flex items-center gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            تسجيل الخروج
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              تحديث الصفحة
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              تسجيل الخروج
+            </Button>
+          </div>
         </div>
       </div>
 
