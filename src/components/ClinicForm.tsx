@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,6 +18,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Clinic } from '@/types/clinic';
 import { ClinicFormData } from '@/hooks/useClinicCRUD';
 import QRCodeGenerator from './QRCodeGenerator';
+import { Save, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const clinicSchema = z.object({
   clinic_name: z.string().min(1, 'اسم العيادة مطلوب'),
@@ -44,12 +46,15 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
   isLoading = false,
   mode 
 }) => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    formState: { errors }
+    formState: { errors, isDirty }
   } = useForm<ClinicFormData>({
     resolver: zodResolver(clinicSchema),
     defaultValues: {
@@ -64,6 +69,37 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
       address: clinic?.address || '',
     }
   });
+
+  // Enhanced form submission with better error handling
+  const handleFormSubmit = async (data: ClinicFormData) => {
+    try {
+      setIsSubmitting(true);
+      console.log('Form submission started:', data);
+      
+      // Validate network connectivity
+      if (!navigator.onLine) {
+        toast({
+          title: "لا يوجد اتصال بالإنترنت",
+          description: "تأكد من اتصالك بالإنترنت وحاول مرة أخرى",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await onSubmit(data);
+      console.log('Form submission completed successfully');
+      
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast({
+        title: "خطأ في حفظ البيانات",
+        description: "حدث خطأ أثناء حفظ البيانات. حاول مرة أخرى.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const watchedValues = watch();
 
@@ -101,7 +137,7 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="clinic_name">اسم العيادة *</Label>
@@ -205,9 +241,28 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'جاري الحفظ...' : mode === 'create' ? 'إضافة العيادة' : 'حفظ التغييرات'}
+                <Button 
+                  type="submit" 
+                  disabled={isLoading || isSubmitting || !navigator.onLine}
+                  className="flex items-center gap-2"
+                >
+                  {(isLoading || isSubmitting) ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      {mode === 'create' ? 'إضافة العيادة' : 'حفظ التغييرات'}
+                    </>
+                  )}
                 </Button>
+                {!navigator.onLine && (
+                  <p className="text-sm text-red-600 flex items-center">
+                    لا يوجد اتصال بالإنترنت
+                  </p>
+                )}
               </div>
             </form>
           </CardContent>

@@ -10,12 +10,34 @@ import QRScan from "./pages/QRScan";
 import LicenseCheck from "./pages/LicenseCheck";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import { NetworkStatus } from "./components/NetworkStatus";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
+      // Mobile-optimized configuration
+      retry: (failureCount, error) => {
+        // Retry up to 3 times for network errors on mobile
+        if (failureCount < 3 && navigator.onLine !== false) {
+          return true;
+        }
+        return false;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 30000, // 30 seconds
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchOnMount: true,
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        // Retry mutations on mobile network issues
+        if (failureCount < 2 && navigator.onLine !== false) {
+          return true;
+        }
+        return false;
+      },
+      retryDelay: 1000,
     },
   },
 });
@@ -30,6 +52,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <div className="min-h-screen w-full">
+        <NetworkStatus />
         <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>

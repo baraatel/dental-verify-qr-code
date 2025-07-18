@@ -2,9 +2,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Clinic, VerificationResult } from "@/types/clinic";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export const useClinicData = () => {
-  return useQuery({
+  const { toast } = useToast();
+
+  const query = useQuery({
     queryKey: ["clinics"],
     queryFn: async (): Promise<Clinic[]> => {
       const { data, error } = await supabase
@@ -23,7 +27,58 @@ export const useClinicData = () => {
         license_status: clinic.license_status as 'active' | 'expired' | 'suspended' | 'pending'
       }));
     },
+    // Mobile-optimized configuration
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for network errors on mobile
+      if (failureCount < 3 && navigator.onLine !== false) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  // Set up real-time subscription for clinic changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('clinics-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clinics'
+        },
+        (payload) => {
+          console.log('Real-time clinic change:', payload);
+          // Invalidate and refetch queries when data changes
+          query.refetch();
+          
+          // Show toast notification for real-time updates
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "عيادة جديدة",
+              description: "تم إضافة عيادة جديدة",
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            toast({
+              title: "تحديث عيادة",
+              description: "تم تحديث بيانات عيادة",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [query.refetch, toast]);
+
+  return query;
 };
 
 export const useVerifyLicense = () => {
