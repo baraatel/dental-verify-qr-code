@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,8 +45,8 @@ const LoadingFallback = () => (
   </div>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const AppContent: React.FC = () => {
+  return (
     <div className="min-h-screen w-full">
       <TooltipProvider>
         <BrowserRouter>
@@ -63,7 +64,15 @@ const App = () => (
         <Sonner />
       </TooltipProvider>
     </div>
-  </QueryClientProvider>
-);
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+};
 
 export default App;
