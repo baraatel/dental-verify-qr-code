@@ -12,6 +12,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -24,27 +25,63 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           .from('profiles')
           .select('role')
           .eq('id', userId)
-          .maybeSingle();
+          .single();
 
         console.log('Profile query result:', { profile, error });
 
-        if (!mounted) return;
+        if (!mounted) return false;
 
         if (error) {
           console.error('Error checking admin role:', error);
-          setIsAdmin(false);
-        } else if (profile) {
-          const adminStatus = profile.role === 'admin';
-          console.log('Admin status:', adminStatus);
-          setIsAdmin(adminStatus);
-        } else {
-          console.log('No profile found for user');
-          setIsAdmin(false);
+          return false;
         }
+        
+        return profile?.role === 'admin';
       } catch (error) {
         console.error('Error in checkAdminRole:', error);
-        if (mounted) {
+        return false;
+      }
+    };
+
+    const initializeAuth = async () => {
+      try {
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Initial session check:', { session: !!session, error });
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setUser(null);
           setIsAdmin(false);
+          setIsLoading(false);
+          setAuthInitialized(true);
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+          const adminStatus = await checkAdminRole(session.user.id);
+          if (mounted) {
+            setIsAdmin(adminStatus);
+          }
+        } else {
+          setUser(null);
+          setIsAdmin(false);
+        }
+        
+        if (mounted) {
+          setIsLoading(false);
+          setAuthInitialized(true);
+        }
+      } catch (error) {
+        console.error('Error in initializeAuth:', error);
+        if (mounted) {
+          setUser(null);
+          setIsAdmin(false);
+          setIsLoading(false);
+          setAuthInitialized(true);
         }
       }
     };
@@ -63,57 +100,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           return;
         }
         
-        if (session?.user) {
+        if (session?.user && authInitialized) {
           setUser(session.user);
-          await checkAdminRole(session.user.id);
+          const adminStatus = await checkAdminRole(session.user.id);
+          if (mounted) {
+            setIsAdmin(adminStatus);
+            setIsLoading(false);
+          }
         }
-        
-        setIsLoading(false);
       }
     );
 
-    // Check initial session
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('Initial session check:', { session: !!session, error });
-        
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('Error getting session:', error);
-          setUser(null);
-          setIsAdmin(false);
-          setIsLoading(false);
-          return;
-        }
-
-        if (session?.user) {
-          setUser(session.user);
-          await checkAdminRole(session.user.id);
-        } else {
-          setUser(null);
-          setIsAdmin(false);
-        }
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error in initializeAuth:', error);
-        if (mounted) {
-          setUser(null);
-          setIsAdmin(false);
-          setIsLoading(false);
-        }
-      }
-    };
-
+    // Initialize auth
     initializeAuth();
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [authInitialized]);
 
   const handleLogout = async () => {
     try {
@@ -127,20 +132,28 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       setUser(null);
       setIsAdmin(false);
       setIsLoading(false);
+      setAuthInitialized(false);
     } catch (error) {
       console.error('Logout error:', error);
       setIsLoading(false);
     }
   };
 
+  const handleLoginSuccess = () => {
+    // Reset states and let the auth listener handle the update
+    setIsLoading(true);
+    setAuthInitialized(false);
+  };
+
   console.log('ProtectedRoute state:', { 
     user: user?.email, 
     isAdmin, 
-    isLoading 
+    isLoading,
+    authInitialized
   });
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || !authInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -166,10 +179,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             </button>
           </div>
         )}
-        <AdminLogin onLogin={() => {
-          // Force re-initialization after login
-          setIsLoading(true);
-        }} />
+        <AdminLogin onLogin={handleLoginSuccess} />
       </div>
     );
   }
