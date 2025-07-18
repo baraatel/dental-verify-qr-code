@@ -2,9 +2,21 @@ import React, { useState, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useClinicData } from '@/hooks/useClinicData';
-import { Building2, FileCheck, AlertTriangle, TrendingUp, QrCode, Search, Upload, Settings } from 'lucide-react';
+import { useUpdateExpiredLicenses } from '@/hooks/useUpdateExpiredLicenses';
+import { Building2, FileCheck, AlertTriangle, TrendingUp, QrCode, Search, Upload, Settings, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ErrorBoundary } from 'react-error-boundary';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 // Lazy load heavy components to prevent initialization issues
 const QRScanner = React.lazy(() => import('./QRScanner'));
@@ -30,6 +42,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: any) => (
 
 const Dashboard: React.FC = () => {
   const { data: clinics = [], isLoading } = useClinicData();
+  const updateExpiredLicenses = useUpdateExpiredLicenses();
   const [activeView, setActiveView] = useState<'dashboard' | 'qr' | 'upload' | 'manage'>('dashboard');
   const [verificationResult, setVerificationResult] = useState<{
     clinic: any;
@@ -42,6 +55,15 @@ const Dashboard: React.FC = () => {
   const expiredClinics = clinics.filter(c => c.license_status === 'expired').length;
   const suspendedClinics = clinics.filter(c => c.license_status === 'suspended').length;
   const totalVerifications = clinics.reduce((sum, clinic) => sum + (clinic.verification_count || 0), 0);
+
+  // Count clinics expiring within 30 days
+  const nearExpiryClinics = clinics.filter(clinic => {
+    if (!clinic.expiry_date) return false;
+    const expiryDate = new Date(clinic.expiry_date);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date() && clinic.license_status === 'active';
+  }).length;
 
   const getStatusColor = (count: number, total: number) => {
     const percentage = (count / total) * 100;
@@ -57,6 +79,14 @@ const Dashboard: React.FC = () => {
       status: clinic ? 'success' : 'not_found',
       licenseNumber: result
     });
+  };
+
+  const handleManualUpdate = async () => {
+    try {
+      await updateExpiredLicenses.mutateAsync();
+    } catch (error) {
+      console.error('Manual update failed:', error);
+    }
   };
 
   if (activeView === 'qr') {
@@ -194,13 +224,37 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* تنبيه للعيادات القريبة من الانتهاء */}
+      {nearExpiryClinics > 0 && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-yellow-700 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              تنبيه: عيادات قريبة من انتهاء الصلاحية
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-yellow-600 mb-4">
+              يوجد {nearExpiryClinics} عيادة ستنتهي صلاحيتها خلال 30 يوم
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setActiveView('manage')}
+              className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+            >
+              عرض العيادات القريبة من الانتهاء
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* الإجراءات السريعة */}
       <Card>
         <CardHeader>
           <CardTitle>الإجراءات السريعة</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <Button
               onClick={() => setActiveView('qr')}
               className="h-20 flex flex-col gap-2"
@@ -228,6 +282,40 @@ const Dashboard: React.FC = () => {
               <span>رفع ملف Excel</span>
             </Button>
 
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  className="h-20 flex flex-col gap-2"
+                  variant="outline"
+                  disabled={updateExpiredLicenses.isPending}
+                >
+                  <RefreshCw className={`h-6 w-6 ${updateExpiredLicenses.isPending ? 'animate-spin' : ''}`} />
+                  <span>تحديث التراخيص فوراً</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>تأكيد تحديث التراخيص</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    سيتم فحص جميع العيادات وتحديث حالة التراخيص المنتهية تلقائياً.
+                    <br /><br />
+                    هذه العملية آمنة ولن تؤثر على البيانات الصحيحة.
+                    <br />
+                    المجموع الحالي: {totalClinics} عيادة
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleManualUpdate}
+                    disabled={updateExpiredLicenses.isPending}
+                  >
+                    {updateExpiredLicenses.isPending ? 'جاري التحديث...' : 'تحديث الآن'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             <Button
               className="h-20 flex flex-col gap-2"
               variant="outline"
@@ -253,12 +341,35 @@ const Dashboard: React.FC = () => {
             <p className="text-red-600 mb-4">
               يوجد {expiredClinics} عيادة منتهية الصلاحية تحتاج لتجديد التراخيص
             </p>
-            <Button
-              variant="destructive"
-              onClick={() => setActiveView('manage')}
-            >
-              عرض العيادات المنتهية
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                onClick={() => setActiveView('manage')}
+              >
+                عرض العيادات المنتهية
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    تحديث فوري
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>تحديث العيادات المنتهية</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      سيتم تحديث حالة جميع العيادات المنتهية الصلاحية ({expiredClinics} عيادة).
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleManualUpdate}>
+                      تحديث الآن
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardContent>
         </Card>
       )}
