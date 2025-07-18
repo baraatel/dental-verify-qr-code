@@ -21,7 +21,7 @@ export const useUpdateExpiredLicenses = () => {
       console.log('Starting manual license update...');
       
       const { data, error } = await supabase
-        .rpc('update_expired_licenses_manual');
+        .rpc('update_expired_licenses_manual' as any);
 
       if (error) {
         console.error('Manual update error:', error);
@@ -29,7 +29,7 @@ export const useUpdateExpiredLicenses = () => {
       }
       
       console.log('Manual update result:', data);
-      return data as UpdateResult;
+      return data;
     },
     onSuccess: (result) => {
       // Invalidate clinics data to refresh the UI
