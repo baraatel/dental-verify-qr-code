@@ -12,11 +12,42 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     console.log('ProtectedRoute: Setting up auth listeners');
     
     let mounted = true;
+
+    const checkAdminRole = async (userId: string) => {
+      try {
+        console.log('ProtectedRoute: Checking admin role for user:', userId);
+        
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+
+        console.log('ProtectedRoute: Profile query result:', { profile, error });
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error('Error checking admin role:', error);
+          setIsAdmin(false);
+        } else {
+          const adminStatus = profile?.role === 'admin';
+          console.log('ProtectedRoute: Admin status:', adminStatus);
+          setIsAdmin(adminStatus);
+        }
+      } catch (error) {
+        console.error('Error in checkAdminRole:', error);
+        if (mounted) {
+          setIsAdmin(false);
+        }
+      }
+    };
 
     // Check initial session
     const checkInitialSession = async () => {
@@ -30,6 +61,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           console.error('Error getting session:', error);
           setUser(null);
           setIsAdmin(false);
+          setAuthChecked(true);
           setIsLoading(false);
           return;
         }
@@ -40,19 +72,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         } else {
           setUser(null);
           setIsAdmin(false);
-          setIsLoading(false);
         }
+        
+        setAuthChecked(true);
+        setIsLoading(false);
       } catch (error) {
         console.error('Error in checkInitialSession:', error);
         if (mounted) {
           setUser(null);
           setIsAdmin(false);
+          setAuthChecked(true);
           setIsLoading(false);
         }
       }
     };
-
-    checkInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -64,6 +97,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAdmin(false);
+          setAuthChecked(true);
           setIsLoading(false);
           return;
         }
@@ -74,49 +108,29 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         } else {
           setUser(null);
           setIsAdmin(false);
-          setIsLoading(false);
         }
+        
+        setAuthChecked(true);
+        setIsLoading(false);
       }
     );
+
+    // Only check initial session if not already checked
+    if (!authChecked) {
+      checkInitialSession();
+    }
 
     return () => {
       mounted = false;
       console.log('ProtectedRoute: Cleaning up auth listener');
       subscription.unsubscribe();
     };
-  }, []);
-
-  const checkAdminRole = async (userId: string) => {
-    try {
-      console.log('ProtectedRoute: Checking admin role for user:', userId);
-      
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      console.log('ProtectedRoute: Profile query result:', { profile, error });
-
-      if (error) {
-        console.error('Error checking admin role:', error);
-        // If profile doesn't exist, user is not admin
-        setIsAdmin(false);
-      } else {
-        const adminStatus = profile?.role === 'admin';
-        console.log('ProtectedRoute: Admin status:', adminStatus);
-        setIsAdmin(adminStatus);
-      }
-    } catch (error) {
-      console.error('Error in checkAdminRole:', error);
-      setIsAdmin(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [authChecked]);
 
   const handleLoginSuccess = () => {
-    console.log('ProtectedRoute: Login success, rechecking auth state');
+    console.log('ProtectedRoute: Login success, resetting auth check');
+    setAuthChecked(false);
+    setIsLoading(true);
     // The auth state change listener will handle the login automatically
   };
 
@@ -132,10 +146,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     }
   };
 
-  console.log('ProtectedRoute: Current state', { user: user?.email, isAdmin, isLoading });
+  console.log('ProtectedRoute: Current state', { 
+    user: user?.email, 
+    isAdmin, 
+    isLoading, 
+    authChecked 
+  });
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || !authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
