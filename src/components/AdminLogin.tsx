@@ -13,13 +13,14 @@ interface AdminLoginProps {
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@clinic-system.com');
+  const [password, setPassword] = useState('admin123');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('AdminLogin: Attempting login with email:', email);
     setIsLoading(true);
 
     try {
@@ -28,11 +29,15 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
         password,
       });
 
+      console.log('AdminLogin: Auth response:', { data, error });
+
       if (error) {
         throw error;
       }
 
       if (data.user) {
+        console.log('AdminLogin: User authenticated, checking admin role');
+        
         // Check if user has admin role
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -40,27 +45,38 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
           .eq('id', data.user.id)
           .single();
 
-        if (profileError || profile?.role !== 'admin') {
+        console.log('AdminLogin: Profile check result:', { profile, profileError });
+
+        if (profileError) {
+          console.error('AdminLogin: Profile error:', profileError);
+          await supabase.auth.signOut();
+          throw new Error('خطأ في التحقق من صلاحيات المستخدم');
+        }
+
+        if (profile?.role !== 'admin') {
+          console.log('AdminLogin: User is not admin, signing out');
           await supabase.auth.signOut();
           throw new Error('غير مصرح لك بالوصول لهذه الصفحة');
         }
 
+        console.log('AdminLogin: Login successful, user is admin');
         toast({
           title: "تم تسجيل الدخول بنجاح",
           description: "مرحباً بك في لوحة التحكم",
         });
+        
         onLogin();
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('AdminLogin: Login error:', error);
       toast({
         title: "خطأ في تسجيل الدخول",
         description: error.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -116,8 +132,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
             </Button>
           </form>
           
-          <div className="mt-4 text-sm text-gray-600 text-center">
-            <p>للاختبار: admin@clinic-system.com</p>
+          <div className="mt-4 text-sm text-gray-600 text-center space-y-1">
+            <p><strong>بيانات تجريبية:</strong></p>
+            <p>البريد: admin@clinic-system.com</p>
             <p>كلمة المرور: admin123</p>
           </div>
         </CardContent>
