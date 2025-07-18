@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useClinicData } from '@/hooks/useClinicData';
 import { useDeleteClinic } from '@/hooks/useClinicCRUD';
 import { useClearAllClinics, useExportClinicsCSV } from '@/hooks/useClinicBulkOperations';
-import { Search, Plus, Edit, Trash2, Eye, Phone, MapPin, Calendar, QrCode, Download, Database } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, Phone, MapPin, Calendar, QrCode, Download, Database, Filter, X } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -45,6 +46,8 @@ const ClinicManagement: React.FC = () => {
   const { exportToCSV } = useExportClinicsCSV();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [specializationFilter, setSpecializationFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -53,12 +56,20 @@ const ClinicManagement: React.FC = () => {
   
   const itemsPerPage = 10;
 
-  const filteredClinics = clinics.filter(clinic =>
-    clinic.clinic_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.license_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.specialization.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get unique specializations for filter options
+  const uniqueSpecializations = Array.from(new Set(clinics.map(clinic => clinic.specialization))).sort();
+
+  const filteredClinics = clinics.filter(clinic => {
+    const matchesSearch = clinic.clinic_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clinic.license_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clinic.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clinic.specialization.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === '' || clinic.license_status === statusFilter;
+    const matchesSpecialization = specializationFilter === '' || clinic.specialization === specializationFilter;
+    
+    return matchesSearch && matchesStatus && matchesSpecialization;
+  });
 
   const totalPages = Math.ceil(filteredClinics.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -78,6 +89,15 @@ const ClinicManagement: React.FC = () => {
         return <Badge variant="outline">غير محدد</Badge>;
     }
   };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setSpecializationFilter('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = statusFilter !== '' || specializationFilter !== '' || searchTerm !== '';
 
   const handleCreateClick = () => {
     setSelectedClinic(null);
@@ -252,58 +272,139 @@ const ClinicManagement: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="البحث عن العيادات..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button
-              variant="outline"
-              onClick={handleExportCSV}
-              className="gap-2"
-              disabled={clinics.length === 0}
-            >
-              <Download className="h-4 w-4" />
-              تصدير CSV
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  className="gap-2"
-                  disabled={clinics.length === 0 || clearAllMutation.isPending}
-                >
-                  <Database className="h-4 w-4" />
-                  مسح جميع البيانات
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>تأكيد مسح جميع البيانات</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    هل أنت متأكد من حذف جميع العيادات من قاعدة البيانات؟ 
-                    سيتم حذف {clinics.length} عيادة وجميع البيانات المرتبطة بها.
-                    <br /><br />
-                    <strong>تحذير: لا يمكن التراجع عن هذا الإجراء!</strong>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleClearAll}
-                    className="bg-red-600 hover:bg-red-700"
-                    disabled={clearAllMutation.isPending}
+          {/* Search and Filters Section */}
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="البحث عن العيادات..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                className="gap-2"
+                disabled={clinics.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                تصدير CSV
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="gap-2"
+                    disabled={clinics.length === 0 || clearAllMutation.isPending}
                   >
-                    {clearAllMutation.isPending ? 'جاري المسح...' : 'مسح جميع البيانات'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    <Database className="h-4 w-4" />
+                    مسح جميع البيانات
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>تأكيد مسح جميع البيانات</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      هل أنت متأكد من حذف جميع العيادات من قاعدة البيانات؟ 
+                      سيتم حذف {clinics.length} عيادة وجميع البيانات المرتبطة بها.
+                      <br /><br />
+                      <strong>تحذير: لا يمكن التراجع عن هذا الإجراء!</strong>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleClearAll}
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={clearAllMutation.isPending}
+                    >
+                      {clearAllMutation.isPending ? 'جاري المسح...' : 'مسح جميع البيانات'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            {/* Filters Row */}
+            <div className="flex gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">فلترة:</span>
+              </div>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="حالة الترخيص" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">جميع الحالات</SelectItem>
+                  <SelectItem value="active">صالح</SelectItem>
+                  <SelectItem value="expired">منتهي</SelectItem>
+                  <SelectItem value="suspended">معلق</SelectItem>
+                  <SelectItem value="pending">قيد المراجعة</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={specializationFilter} onValueChange={setSpecializationFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="التخصص" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">جميع التخصصات</SelectItem>
+                  {uniqueSpecializations.map((specialization) => (
+                    <SelectItem key={specialization} value={specialization}>
+                      {specialization}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-2 text-gray-600 hover:text-gray-800"
+                >
+                  <X className="h-4 w-4" />
+                  مسح الفلاتر
+                </Button>
+              )}
+            </div>
+
+            {/* Active Filters Display */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap gap-2 text-sm">
+                <span className="text-gray-600">الفلاتر المفعلة:</span>
+                {statusFilter && (
+                  <Badge variant="secondary" className="gap-1">
+                    الحالة: {statusFilter === 'active' ? 'صالح' : statusFilter === 'expired' ? 'منتهي' : statusFilter === 'suspended' ? 'معلق' : 'قيد المراجعة'}
+                    <X 
+                      className="h-3 w-3 cursor-pointer" 
+                      onClick={() => setStatusFilter('')}
+                    />
+                  </Badge>
+                )}
+                {specializationFilter && (
+                  <Badge variant="secondary" className="gap-1">
+                    التخصص: {specializationFilter}
+                    <X 
+                      className="h-3 w-3 cursor-pointer" 
+                      onClick={() => setSpecializationFilter('')}
+                    />
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Results Summary */}
+            <div className="text-sm text-gray-600">
+              عرض {filteredClinics.length} من أصل {clinics.length} عيادة
+              {hasActiveFilters && ' (مفلترة)'}
+            </div>
           </div>
 
           <div className="rounded-md border">
