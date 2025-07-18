@@ -40,39 +40,19 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
         if (signUpError.message.includes('already') || signUpError.message.includes('registered')) {
           toast({
             title: "المستخدم موجود بالفعل",
-            description: "جاري المحاولة مرة أخرى...",
+            description: "سيتم تحديث دور المستخدم إلى admin",
           });
+          // Try to update existing user's role
+          await ensureAdminRole(email);
           return;
         }
         throw signUpError;
       }
 
       if (signUpData.user) {
-        // Wait a moment for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('AdminLogin: User created, ensuring admin role');
+        await ensureAdminRole(email, signUpData.user.id);
         
-        // Update the user's role to admin
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ role: 'admin' })
-          .eq('id', signUpData.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-          // Try to insert the profile if it doesn't exist
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: signUpData.user.id,
-              email: signUpData.user.email,
-              role: 'admin'
-            });
-
-          if (insertError) {
-            console.error('Error inserting profile:', insertError);
-          }
-        }
-
         toast({
           title: "تم إنشاء حساب الإدارة",
           description: "يمكنك الآن تسجيل الدخول",
@@ -87,6 +67,49 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       });
     } finally {
       setIsCreatingAdmin(false);
+    }
+  };
+
+  const ensureAdminRole = async (userEmail: string, userId?: string) => {
+    try {
+      // If we don't have userId, get it from profiles
+      if (!userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', userEmail)
+          .single();
+        
+        if (profile) {
+          userId = profile.id;
+        }
+      }
+
+      if (userId) {
+        // Try to update existing profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('id', userId);
+
+        if (updateError) {
+          console.log('Update failed, trying insert:', updateError);
+          // If update fails, try to insert
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: userEmail,
+              role: 'admin'
+            });
+
+          if (insertError) {
+            console.error('Profile insert failed:', insertError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring admin role:', error);
     }
   };
 
@@ -120,7 +143,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       }
 
       if (data.user) {
-        console.log('AdminLogin: User authenticated, checking admin role');
+        console.log('AdminLogin: User authenticated, ensuring admin role');
+        
+        // Make sure the user has admin role
+        await ensureAdminRole(data.user.email || '', data.user.id);
+        
+        // Wait a moment for the role to be set
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check if user has admin role
         const { data: profile, error: profileError } = await supabase
@@ -131,30 +160,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
 
         console.log('AdminLogin: Profile check result:', { profile, profileError });
 
-        if (profileError) {
-          console.error('AdminLogin: Profile error:', profileError);
-          
-          // If profile doesn't exist, create it
-          if (profileError.code === 'PGRST116') {
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: data.user.id,
-                email: data.user.email,
-                role: 'admin'
-              });
-
-            if (insertError) {
-              console.error('Error creating profile:', insertError);
-              await supabase.auth.signOut();
-              throw new Error('خطأ في إنشاء ملف المستخدم');
-            }
-          } else {
-            await supabase.auth.signOut();
-            throw new Error('خطأ في التحقق من صلاحيات المستخدم');
-          }
-        } else if (profile?.role !== 'admin') {
-          console.log('AdminLogin: User is not admin, signing out');
+        if (profileError || profile?.role !== 'admin') {
+          console.log('AdminLogin: User is not admin or profile missing');
           await supabase.auth.signOut();
           throw new Error('غير مصرح لك بالوصول لهذه الصفحة');
         }
