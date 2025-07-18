@@ -59,7 +59,7 @@ export const useUpdateClinic = () => {
         .update(clinicData)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
