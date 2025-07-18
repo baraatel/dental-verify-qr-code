@@ -44,7 +44,7 @@ const AnalyticsReport: React.FC = () => {
       .map(([region, count]) => ({
         region,
         count,
-        percentage: ((count / totalClinics) * 100).toFixed(1)
+        percentage: totalClinics > 0 ? ((count / totalClinics) * 100).toFixed(1) : '0'
       }))
       .sort((a, b) => b.count - a.count);
 
@@ -59,16 +59,36 @@ const AnalyticsReport: React.FC = () => {
       .map(([specialization, count]) => ({
         specialization,
         count,
-        percentage: ((count / totalClinics) * 100).toFixed(1)
+        percentage: totalClinics > 0 ? ((count / totalClinics) * 100).toFixed(1) : '0'
       }))
       .sort((a, b) => b.count - a.count);
 
     // Status distribution for chart
     const statusData = [
-      { name: 'صالح', value: activeClinics, color: '#10b981' },
-      { name: 'منتهي', value: expiredClinics, color: '#ef4444' },
-      { name: 'قيد المراجعة', value: pendingClinics, color: '#f59e0b' },
-      { name: 'معلق', value: suspendedClinics, color: '#6b7280' }
+      { 
+        name: 'صالح', 
+        value: activeClinics, 
+        color: '#10b981',
+        percentage: totalClinics > 0 ? ((activeClinics / totalClinics) * 100).toFixed(1) : '0'
+      },
+      { 
+        name: 'منتهي', 
+        value: expiredClinics, 
+        color: '#ef4444',
+        percentage: totalClinics > 0 ? ((expiredClinics / totalClinics) * 100).toFixed(1) : '0'
+      },
+      { 
+        name: 'قيد المراجعة', 
+        value: pendingClinics, 
+        color: '#f59e0b',
+        percentage: totalClinics > 0 ? ((pendingClinics / totalClinics) * 100).toFixed(1) : '0'
+      },
+      { 
+        name: 'معلق', 
+        value: suspendedClinics, 
+        color: '#6b7280',
+        percentage: totalClinics > 0 ? ((suspendedClinics / totalClinics) * 100).toFixed(1) : '0'
+      }
     ].filter(item => item.value > 0);
 
     return {
@@ -105,6 +125,30 @@ const AnalyticsReport: React.FC = () => {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
+  // Custom label function for pie chart to prevent overlapping
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+    if (percent < 0.05) return null; // Don't show labels for slices smaller than 5%
+    
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight="bold"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   return (
     <div className="space-y-6" dir="rtl">
       <div>
@@ -133,7 +177,7 @@ const AnalyticsReport: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{analytics.activeClinics}</div>
             <p className="text-xs text-muted-foreground">
-              {((analytics.activeClinics / analytics.totalClinics) * 100).toFixed(1)}% من المجموع
+              {analytics.totalClinics > 0 ? ((analytics.activeClinics / analytics.totalClinics) * 100).toFixed(1) : '0'}% من المجموع
             </p>
           </CardContent>
         </Card>
@@ -146,7 +190,7 @@ const AnalyticsReport: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{analytics.expiredClinics}</div>
             <p className="text-xs text-muted-foreground">
-              {((analytics.expiredClinics / analytics.totalClinics) * 100).toFixed(1)}% من المجموع
+              {analytics.totalClinics > 0 ? ((analytics.expiredClinics / analytics.totalClinics) * 100).toFixed(1) : '0'}% من المجموع
             </p>
           </CardContent>
         </Card>
@@ -174,25 +218,42 @@ const AnalyticsReport: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={analytics.statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {analytics.statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analytics.statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomizedLabel}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {analytics.statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value, name) => [`${value} عيادة`, name]}
+                    labelFormatter={() => ''}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {analytics.statusData.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: item.color }}
+                  ></div>
+                  <span className="text-sm">{item.name}: {item.value} ({item.percentage}%)</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -205,21 +266,30 @@ const AnalyticsReport: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analytics.specializationData.slice(0, 6)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="specialization" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  fontSize={12}
-                />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={analytics.specializationData.slice(0, 8)} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="specialization" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    fontSize={10}
+                    interval={0}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value) => [`${value} عيادة`, 'عدد العيادات']}
+                    labelFormatter={(label) => `التخصص: ${label}`}
+                  />
+                  <Bar dataKey="count" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
