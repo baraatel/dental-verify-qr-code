@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,8 +47,8 @@ const ClinicManagement: React.FC = () => {
   const { exportToCSV } = useExportClinicsCSV();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [specializationFilter, setSpecializationFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [specializationFilter, setSpecializationFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -57,7 +58,11 @@ const ClinicManagement: React.FC = () => {
   const itemsPerPage = 10;
 
   // Get unique specializations for filter options
-  const uniqueSpecializations = Array.from(new Set(clinics.map(clinic => clinic.specialization))).sort();
+  const uniqueSpecializations = Array.from(new Set(
+    clinics
+      .map(clinic => clinic.specialization)
+      .filter(spec => spec && spec.trim() !== '')
+  )).sort();
 
   const filteredClinics = clinics.filter(clinic => {
     const matchesSearch = clinic.clinic_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -65,8 +70,8 @@ const ClinicManagement: React.FC = () => {
       clinic.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       clinic.specialization.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === '' || clinic.license_status === statusFilter;
-    const matchesSpecialization = specializationFilter === '' || clinic.specialization === specializationFilter;
+    const matchesStatus = statusFilter === 'all' || clinic.license_status === statusFilter;
+    const matchesSpecialization = specializationFilter === 'all' || clinic.specialization === specializationFilter;
     
     return matchesSearch && matchesStatus && matchesSpecialization;
   });
@@ -92,12 +97,12 @@ const ClinicManagement: React.FC = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('');
-    setSpecializationFilter('');
+    setStatusFilter('all');
+    setSpecializationFilter('all');
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter !== '' || specializationFilter !== '' || searchTerm !== '';
+  const hasActiveFilters = statusFilter !== 'all' || specializationFilter !== 'all' || searchTerm !== '';
 
   const handleCreateClick = () => {
     setSelectedClinic(null);
@@ -340,7 +345,7 @@ const ClinicManagement: React.FC = () => {
                   <SelectValue placeholder="حالة الترخيص" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">جميع الحالات</SelectItem>
+                  <SelectItem value="all">جميع الحالات</SelectItem>
                   <SelectItem value="active">صالح</SelectItem>
                   <SelectItem value="expired">منتهي</SelectItem>
                   <SelectItem value="suspended">معلق</SelectItem>
@@ -353,7 +358,7 @@ const ClinicManagement: React.FC = () => {
                   <SelectValue placeholder="التخصص" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">جميع التخصصات</SelectItem>
+                  <SelectItem value="all">جميع التخصصات</SelectItem>
                   {uniqueSpecializations.map((specialization) => (
                     <SelectItem key={specialization} value={specialization}>
                       {specialization}
@@ -379,21 +384,30 @@ const ClinicManagement: React.FC = () => {
             {hasActiveFilters && (
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="text-gray-600">الفلاتر المفعلة:</span>
-                {statusFilter && (
+                {statusFilter !== 'all' && (
                   <Badge variant="secondary" className="gap-1">
                     الحالة: {statusFilter === 'active' ? 'صالح' : statusFilter === 'expired' ? 'منتهي' : statusFilter === 'suspended' ? 'معلق' : 'قيد المراجعة'}
                     <X 
                       className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setStatusFilter('')}
+                      onClick={() => setStatusFilter('all')}
                     />
                   </Badge>
                 )}
-                {specializationFilter && (
+                {specializationFilter !== 'all' && (
                   <Badge variant="secondary" className="gap-1">
                     التخصص: {specializationFilter}
                     <X 
                       className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setSpecializationFilter('')}
+                      onClick={() => setSpecializationFilter('all')}
+                    />
+                  </Badge>
+                )}
+                {searchTerm && (
+                  <Badge variant="secondary" className="gap-1">
+                    البحث: {searchTerm}
+                    <X 
+                      className="h-3 w-3 cursor-pointer" 
+                      onClick={() => setSearchTerm('')}
                     />
                   </Badge>
                 )}
