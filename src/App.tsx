@@ -14,23 +14,20 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Mobile-optimized configuration
       retry: (failureCount, error) => {
-        // Retry up to 3 times for network errors on mobile
         if (failureCount < 3 && navigator.onLine !== false) {
           return true;
         }
         return false;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 30000, // 30 seconds
+      staleTime: 30000,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
       refetchOnMount: true,
     },
     mutations: {
       retry: (failureCount, error) => {
-        // Retry mutations on mobile network issues
         if (failureCount < 2 && navigator.onLine !== false) {
           return true;
         }
@@ -49,8 +46,8 @@ const LoadingFallback = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full">
+      <TooltipProvider>
         <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
@@ -62,10 +59,10 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
-      </div>
-      <Toaster />
-      <Sonner />
-    </TooltipProvider>
+        <Toaster />
+        <Sonner />
+      </TooltipProvider>
+    </div>
   </QueryClientProvider>
 );
 
