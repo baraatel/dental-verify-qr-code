@@ -40,6 +40,38 @@ interface ClinicFormProps {
   mode: 'create' | 'edit';
 }
 
+// Common dental and medical specializations in Arabic
+const specializations = [
+  'طب الأسنان العام',
+  'جراحة الفم والوجه والفكين',
+  'تقويم الأسنان',
+  'طب أسنان الأطفال',
+  'علاج الجذور',
+  'أمراض اللثة',
+  'تركيبات الأسنان',
+  'جراحة الأسنان',
+  'طب الأسنان التجميلي',
+  'زراعة الأسنان',
+  'الطب العام',
+  'طب الأطفال',
+  'أمراض النساء والتوليد',
+  'الجراحة العامة',
+  'طب القلب',
+  'أمراض الجهاز الهضمي',
+  'طب العيون',
+  'أنف وأذن وحنجرة',
+  'جراحة العظام',
+  'الأمراض الجلدية',
+  'الطب النفسي',
+  'طب الأعصاب',
+  'أمراض الكلى',
+  'أمراض الرئة',
+  'الأشعة التشخيصية',
+  'التخدير',
+  'طب الطوارئ',
+  'الطب الباطني'
+];
+
 const ClinicForm: React.FC<ClinicFormProps> = ({ 
   clinic, 
   onSubmit, 
@@ -174,11 +206,21 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
 
                 <div>
                   <Label htmlFor="specialization">التخصص *</Label>
-                  <Input
-                    id="specialization"
-                    {...register('specialization')}
-                    placeholder="طب الأسنان العام"
-                  />
+                  <Select
+                    value={watchedValues.specialization || ''}
+                    onValueChange={(value) => setValue('specialization', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر التخصص" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px] overflow-y-auto">
+                      {specializations.map((spec) => (
+                        <SelectItem key={spec} value={spec}>
+                          {spec}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.specialization && (
                     <p className="text-sm text-red-600 mt-1">{errors.specialization.message}</p>
                   )}
