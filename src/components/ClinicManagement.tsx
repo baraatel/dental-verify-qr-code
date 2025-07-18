@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useClinicData } from '@/hooks/useClinicData';
 import { useDeleteClinic } from '@/hooks/useClinicCRUD';
-import { Search, Plus, Edit, Trash2, Eye, Phone, MapPin, Calendar, QrCode } from 'lucide-react';
+import { useClearAllClinics, useExportClinicsCSV } from '@/hooks/useClinicBulkOperations';
+import { Search, Plus, Edit, Trash2, Eye, Phone, MapPin, Calendar, QrCode, Download, Database } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -40,6 +41,8 @@ import { Clinic } from '@/types/clinic';
 const ClinicManagement: React.FC = () => {
   const { data: clinics = [], isLoading, error } = useClinicData();
   const deleteMutation = useDeleteClinic();
+  const clearAllMutation = useClearAllClinics();
+  const { exportToCSV } = useExportClinicsCSV();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,6 +101,18 @@ const ClinicManagement: React.FC = () => {
       await deleteMutation.mutateAsync(id);
     } catch (error) {
       console.error('Error deleting clinic:', error);
+    }
+  };
+
+  const handleExportCSV = () => {
+    exportToCSV(clinics);
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await clearAllMutation.mutateAsync();
+    } catch (error) {
+      console.error('Error clearing all clinics:', error);
     }
   };
 
@@ -247,6 +262,48 @@ const ClinicManagement: React.FC = () => {
                 className="pl-10"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="gap-2"
+              disabled={clinics.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              تصدير CSV
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="gap-2"
+                  disabled={clinics.length === 0 || clearAllMutation.isPending}
+                >
+                  <Database className="h-4 w-4" />
+                  مسح جميع البيانات
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>تأكيد مسح جميع البيانات</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    هل أنت متأكد من حذف جميع العيادات من قاعدة البيانات؟ 
+                    سيتم حذف {clinics.length} عيادة وجميع البيانات المرتبطة بها.
+                    <br /><br />
+                    <strong>تحذير: لا يمكن التراجع عن هذا الإجراء!</strong>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleClearAll}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={clearAllMutation.isPending}
+                  >
+                    {clearAllMutation.isPending ? 'جاري المسح...' : 'مسح جميع البيانات'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           <div className="rounded-md border">
