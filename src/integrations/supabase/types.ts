@@ -219,6 +219,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      update_expired_licenses: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
