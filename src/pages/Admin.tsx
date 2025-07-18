@@ -6,19 +6,33 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const AdminContent = () => {
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminLoggedIn');
-    localStorage.removeItem('adminLoginTime');
-    toast({
-      title: "تم تسجيل الخروج بنجاح",
-      description: "نراك قريباً",
-    });
-    // إعادة تحميل الصفحة لإظهار شاشة تسجيل الدخول
-    window.location.reload();
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "تم تسجيل الخروج بنجاح",
+        description: "نراك قريباً",
+      });
+      
+      // The auth state change listener in ProtectedRoute will handle the redirect
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      toast({
+        title: "خطأ في تسجيل الخروج",
+        description: error.message || "حدث خطأ أثناء تسجيل الخروج",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

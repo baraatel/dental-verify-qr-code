@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AdminLoginProps {
   onLogin: () => void;
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -21,21 +22,40 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // محاكاة فترة انتظار للمصادقة
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (username === 'admin' && password === 'admin') {
-      localStorage.setItem('adminLoggedIn', 'true');
-      localStorage.setItem('adminLoginTime', Date.now().toString());
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في لوحة التحكم",
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      onLogin();
-    } else {
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        // Check if user has admin role
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError || profile?.role !== 'admin') {
+          await supabase.auth.signOut();
+          throw new Error('غير مصرح لك بالوصول لهذه الصفحة');
+        }
+
+        toast({
+          title: "تم تسجيل الدخول بنجاح",
+          description: "مرحباً بك في لوحة التحكم",
+        });
+        onLogin();
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         title: "خطأ في تسجيل الدخول",
-        description: "اسم المستخدم أو كلمة المرور غير صحيحة",
+        description: error.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
         variant: "destructive",
       });
     }
@@ -56,15 +76,15 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">اسم المستخدم</Label>
+              <Label htmlFor="email">البريد الإلكتروني</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@clinic-system.com"
                   className="pl-10"
                   required
                 />
@@ -95,6 +115,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
               {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
             </Button>
           </form>
+          
+          <div className="mt-4 text-sm text-gray-600 text-center">
+            <p>للاختبار: admin@clinic-system.com</p>
+            <p>كلمة المرور: admin123</p>
+          </div>
         </CardContent>
       </Card>
     </div>
