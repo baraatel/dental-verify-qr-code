@@ -16,7 +16,79 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('admin@clinic-system.com');
   const [password, setPassword] = useState('admin123');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const { toast } = useToast();
+
+  const createAdminUser = async () => {
+    setIsCreatingAdmin(true);
+    try {
+      console.log('AdminLogin: Creating admin user');
+      
+      // First try to sign up the admin user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/admin`
+        }
+      });
+
+      console.log('AdminLogin: SignUp response:', { signUpData, signUpError });
+
+      if (signUpError) {
+        // If user already exists, that's actually good for us
+        if (signUpError.message.includes('already') || signUpError.message.includes('registered')) {
+          toast({
+            title: "المستخدم موجود بالفعل",
+            description: "جاري المحاولة مرة أخرى...",
+          });
+          return;
+        }
+        throw signUpError;
+      }
+
+      if (signUpData.user) {
+        // Wait a moment for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update the user's role to admin
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('id', signUpData.user.id);
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          // Try to insert the profile if it doesn't exist
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: signUpData.user.id,
+              email: signUpData.user.email,
+              role: 'admin'
+            });
+
+          if (insertError) {
+            console.error('Error inserting profile:', insertError);
+          }
+        }
+
+        toast({
+          title: "تم إنشاء حساب الإدارة",
+          description: "يمكنك الآن تسجيل الدخول",
+        });
+      }
+    } catch (error: any) {
+      console.error('AdminLogin: Create admin error:', error);
+      toast({
+        title: "خطأ في إنشاء حساب الإدارة",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +104,18 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       console.log('AdminLogin: Auth response:', { data, error });
 
       if (error) {
+        // If credentials are invalid, maybe the admin user doesn't exist
+        if (error.message.includes('Invalid login credentials')) {
+          console.log('AdminLogin: Invalid credentials, user might not exist');
+          setIsLoading(false);
+          
+          toast({
+            title: "بيانات الدخول غير صحيحة",
+            description: "هل تريد إنشاء حساب الإدارة؟",
+            variant: "destructive",
+          });
+          return;
+        }
         throw error;
       }
 
@@ -49,11 +133,27 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
 
         if (profileError) {
           console.error('AdminLogin: Profile error:', profileError);
-          await supabase.auth.signOut();
-          throw new Error('خطأ في التحقق من صلاحيات المستخدم');
-        }
+          
+          // If profile doesn't exist, create it
+          if (profileError.code === 'PGRST116') {
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: data.user.id,
+                email: data.user.email,
+                role: 'admin'
+              });
 
-        if (profile?.role !== 'admin') {
+            if (insertError) {
+              console.error('Error creating profile:', insertError);
+              await supabase.auth.signOut();
+              throw new Error('خطأ في إنشاء ملف المستخدم');
+            }
+          } else {
+            await supabase.auth.signOut();
+            throw new Error('خطأ في التحقق من صلاحيات المستخدم');
+          }
+        } else if (profile?.role !== 'admin') {
           console.log('AdminLogin: User is not admin, signing out');
           await supabase.auth.signOut();
           throw new Error('غير مصرح لك بالوصول لهذه الصفحة');
@@ -130,12 +230,25 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
             >
               {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
             </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={createAdminUser}
+              disabled={isCreatingAdmin}
+            >
+              {isCreatingAdmin ? "جاري إنشاء الحساب..." : "إنشاء حساب الإدارة"}
+            </Button>
           </form>
           
           <div className="mt-4 text-sm text-gray-600 text-center space-y-1">
             <p><strong>بيانات تجريبية:</strong></p>
             <p>البريد: admin@clinic-system.com</p>
             <p>كلمة المرور: admin123</p>
+            <p className="text-xs text-red-600 mt-2">
+              إذا كانت هذه أول مرة، اضغط "إنشاء حساب الإدارة" أولاً
+            </p>
           </div>
         </CardContent>
       </Card>
