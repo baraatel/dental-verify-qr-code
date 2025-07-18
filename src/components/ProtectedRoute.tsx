@@ -16,11 +16,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   useEffect(() => {
     console.log('ProtectedRoute: Setting up auth listeners');
     
+    let mounted = true;
+
     // Check initial session
     const checkInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         console.log('ProtectedRoute: Initial session check', { session, error });
+        
+        if (!mounted) return;
         
         if (error) {
           console.error('Error getting session:', error);
@@ -40,9 +44,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         }
       } catch (error) {
         console.error('Error in checkInitialSession:', error);
-        setUser(null);
-        setIsAdmin(false);
-        setIsLoading(false);
+        if (mounted) {
+          setUser(null);
+          setIsAdmin(false);
+          setIsLoading(false);
+        }
       }
     };
 
@@ -52,6 +58,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('ProtectedRoute: Auth state changed:', event, session?.user?.email);
+        
+        if (!mounted) return;
+        
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsAdmin(false);
+          setIsLoading(false);
+          return;
+        }
         
         if (session?.user) {
           setUser(session.user);
@@ -65,6 +80,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
 
     return () => {
+      mounted = false;
       console.log('ProtectedRoute: Cleaning up auth listener');
       subscription.unsubscribe();
     };
@@ -84,6 +100,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
       if (error) {
         console.error('Error checking admin role:', error);
+        // If profile doesn't exist, user is not admin
         setIsAdmin(false);
       } else {
         const adminStatus = profile?.role === 'admin';
@@ -103,6 +120,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     // The auth state change listener will handle the login automatically
   };
 
+  const handleLogout = async () => {
+    try {
+      console.log('ProtectedRoute: Logging out user');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   console.log('ProtectedRoute: Current state', { user: user?.email, isAdmin, isLoading });
 
   // Loading state
@@ -117,10 +146,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // If not authenticated or not admin
+  // If not authenticated or not admin, show login with logout option
   if (!user || !isAdmin) {
     console.log('ProtectedRoute: Showing login form', { hasUser: !!user, isAdmin });
-    return <AdminLogin onLogin={handleLoginSuccess} />;
+    return (
+      <div>
+        {user && (
+          <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 text-center">
+            <p className="text-yellow-800 mb-2">مرحباً {user.email} - ليس لديك صلاحيات إدارية</p>
+            <button
+              onClick={handleLogout}
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              تسجيل الخروج
+            </button>
+          </div>
+        )}
+        <AdminLogin onLogin={handleLoginSuccess} />
+      </div>
+    );
   }
 
   // If authenticated and admin
