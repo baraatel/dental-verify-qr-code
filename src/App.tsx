@@ -10,7 +10,6 @@ import QRScan from "./pages/QRScan";
 import LicenseCheck from "./pages/LicenseCheck";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import { NetworkStatus } from "./components/NetworkStatus";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,7 +51,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <div className="min-h-screen w-full">
-        <NetworkStatus />
         <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
