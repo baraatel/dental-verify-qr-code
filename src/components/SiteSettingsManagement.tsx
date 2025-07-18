@@ -80,7 +80,7 @@ const SiteSettingsManagement: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
           <CardTitle>إعدادات الموقع</CardTitle>
         </CardHeader>
@@ -92,13 +92,13 @@ const SiteSettingsManagement: React.FC = () => {
   }
 
   return (
-    <Card>
+    <Card dir="rtl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 justify-end">
+          <span>إعدادات الموقع</span>
           <Settings className="h-5 w-5" />
-          إعدادات الموقع
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-right">
           تخصيص محتوى الفوتر ومعلومات الموقع
         </CardDescription>
       </CardHeader>
@@ -106,35 +106,41 @@ const SiteSettingsManagement: React.FC = () => {
         <div className="grid gap-6">
           {/* Footer Title */}
           <div>
-            <label className="block text-sm font-medium mb-2">عنوان النظام في الفوتر</label>
+            <label className="block text-sm font-medium mb-2 text-right">عنوان النظام في الفوتر</label>
             <Input
               value={formData.footer_title || ''}
               onChange={(e) => handleInputChange('footer_title', e.target.value)}
               placeholder="نظام التحقق من تراخيص العيادات"
+              className="text-right"
+              dir="rtl"
             />
           </div>
 
           {/* Footer Description */}
           <div>
-            <label className="block text-sm font-medium mb-2">وصف النظام</label>
+            <label className="block text-sm font-medium mb-2 text-right">وصف النظام</label>
             <Textarea
               value={formData.footer_description || ''}
               onChange={(e) => handleInputChange('footer_description', e.target.value)}
               placeholder="نظام متطور للتحقق السريع والآمن من تراخيص عيادات الأسنان في الأردن"
               rows={3}
+              className="text-right"
+              dir="rtl"
             />
           </div>
 
           {/* Footer Features */}
           <div>
-            <label className="block text-sm font-medium mb-2">قائمة الميزات (JSON)</label>
+            <label className="block text-sm font-medium mb-2 text-right">قائمة الميزات (JSON)</label>
             <Textarea
               value={formData.footer_features || ''}
               onChange={(e) => handleInputChange('footer_features', e.target.value)}
               placeholder='["• مسح رمز QR السريع", "• التحقق اليدوي من الترخيص"]'
               rows={4}
+              className="text-right font-mono"
+              dir="rtl"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1 text-right">
               يرجى إدخال قائمة JSON صحيحة للميزات
             </p>
           </div>
@@ -142,49 +148,57 @@ const SiteSettingsManagement: React.FC = () => {
           {/* Developer Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">اسم المطور</label>
+              <label className="block text-sm font-medium mb-2 text-right">اسم المطور</label>
               <Input
                 value={formData.footer_developer_name || ''}
                 onChange={(e) => handleInputChange('footer_developer_name', e.target.value)}
                 placeholder="د. براء صادق"
+                className="text-right"
+                dir="rtl"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">منصب المطور</label>
+              <label className="block text-sm font-medium mb-2 text-right">منصب المطور</label>
               <Input
                 value={formData.footer_developer_title || ''}
                 onChange={(e) => handleInputChange('footer_developer_title', e.target.value)}
                 placeholder="رئيس لجنة تكنولوجيا المعلومات"
+                className="text-right"
+                dir="rtl"
               />
             </div>
           </div>
 
           {/* Organization */}
           <div>
-            <label className="block text-sm font-medium mb-2">اسم المنظمة</label>
+            <label className="block text-sm font-medium mb-2 text-right">اسم المنظمة</label>
             <Input
               value={formData.footer_organization || ''}
               onChange={(e) => handleInputChange('footer_organization', e.target.value)}
               placeholder="نقابة أطباء الأسنان الأردنية"
+              className="text-right"
+              dir="rtl"
             />
           </div>
 
           {/* Copyright */}
           <div>
-            <label className="block text-sm font-medium mb-2">نص حقوق النشر</label>
+            <label className="block text-sm font-medium mb-2 text-right">نص حقوق النشر</label>
             <Input
               value={formData.footer_copyright || ''}
               onChange={(e) => handleInputChange('footer_copyright', e.target.value)}
               placeholder="جميع الحقوق محفوظة © {year} نقابة أطباء الأسنان الأردنية"
+              className="text-right"
+              dir="rtl"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1 text-right">
               استخدم {`{year}`} لإدراج السنة الحالية تلقائياً
             </p>
           </div>
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end pt-4 border-t">
+        <div className="flex justify-start pt-4 border-t">
           <Button
             onClick={handleSave}
             disabled={updateMutation.isPending}

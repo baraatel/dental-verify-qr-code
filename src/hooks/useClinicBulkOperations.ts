@@ -1,32 +1,78 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Clinic } from "@/types/clinic";
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export const useClearAllClinics = () => {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
+      console.log('Clearing all clinics...');
+      
       const { error } = await supabase
-        .from("clinics")
+        .from('clinics')
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all rows
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error clearing clinics:', error);
+        throw error;
+      }
+
+      console.log('All clinics cleared successfully');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clinics"] });
+      queryClient.invalidateQueries({ queryKey: ['clinics'] });
       toast({
         title: "تم مسح جميع العيادات بنجاح",
-        description: "تم حذف جميع البيانات من قاعدة البيانات",
+        description: "تم حذف جميع بيانات العيادات من قاعدة البيانات",
       });
     },
     onError: (error: any) => {
+      console.error('Error in clear all clinics mutation:', error);
       toast({
         title: "خطأ في مسح البيانات",
-        description: error.message,
+        description: error.message || "حدث خطأ أثناء مسح جميع العيادات",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useClearAllQRCodes = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      console.log('Clearing all QR codes...');
+      
+      const { error } = await supabase
+        .from('clinics')
+        .update({ qr_code: null })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all records
+
+      if (error) {
+        console.error('Error clearing QR codes:', error);
+        throw error;
+      }
+
+      console.log('QR codes cleared successfully');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clinics'] });
+      toast({
+        title: "تم مسح رموز QR بنجاح",
+        description: "تم مسح جميع رموز QR للعيادات",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error in clear QR codes mutation:', error);
+      toast({
+        title: "خطأ في مسح رموز QR",
+        description: error.message || "حدث خطأ أثناء مسح رموز QR",
         variant: "destructive",
       });
     },
@@ -34,35 +80,28 @@ export const useClearAllClinics = () => {
 };
 
 export const useExportClinicsCSV = () => {
-  const { toast } = useToast();
-
-  const exportToCSV = (clinics: Clinic[]) => {
-    if (clinics.length === 0) {
-      toast({
-        title: "لا توجد بيانات للتصدير",
-        description: "لا توجد عيادات في قاعدة البيانات",
-        variant: "destructive",
-      });
+  const exportToCSV = (clinics: any[]) => {
+    if (!clinics || clinics.length === 0) {
+      console.log('No clinics data to export');
       return;
     }
 
     // Define CSV headers in Arabic
     const headers = [
-      "اسم العيادة",
-      "رقم الترخيص", 
-      "اسم الطبيب",
-      "التخصص",
-      "حالة الترخيص",
-      "رقم الهاتف",
-      "العنوان",
-      "تاريخ الإصدار",
-      "تاريخ الانتهاء",
-      "عدد مرات التحقق",
-      "تاريخ الإنشاء"
+      'اسم العيادة',
+      'رقم الترخيص',
+      'اسم الطبيب',
+      'التخصص',
+      'حالة الترخيص',
+      'رقم الهاتف',
+      'العنوان',
+      'تاريخ الإصدار',
+      'تاريخ الانتهاء',
+      'عدد التحقق'
     ];
 
-    // Convert clinics data to CSV rows
-    const csvRows = [
+    // Convert clinics data to CSV format
+    const csvContent = [
       headers.join(','),
       ...clinics.map(clinic => [
         `"${clinic.clinic_name || ''}"`,
@@ -72,33 +111,22 @@ export const useExportClinicsCSV = () => {
         `"${clinic.license_status || ''}"`,
         `"${clinic.phone || ''}"`,
         `"${clinic.address || ''}"`,
-        `"${clinic.issue_date ? new Date(clinic.issue_date).toLocaleDateString('ar-JO') : ''}"`,
-        `"${clinic.expiry_date ? new Date(clinic.expiry_date).toLocaleDateString('ar-JO') : ''}"`,
-        `"${clinic.verification_count || 0}"`,
-        `"${new Date(clinic.created_at).toLocaleDateString('ar-JO')}"`
+        `"${clinic.issue_date || ''}"`,
+        `"${clinic.expiry_date || ''}"`,
+        `"${clinic.verification_count || 0}"`
       ].join(','))
-    ];
+    ].join('\n');
 
     // Create and download CSV file
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `clinics_export_${timestamp}.csv`;
-    
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.style.display = 'none';
-    
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clinics_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    toast({
-      title: "تم تصدير البيانات بنجاح",
-      description: `تم تصدير ${clinics.length} عيادة إلى ملف CSV`,
-    });
   };
 
   return { exportToCSV };
