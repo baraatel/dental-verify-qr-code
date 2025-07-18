@@ -22,52 +22,53 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useSpecializations } from '@/hooks/useSpecializations';
+import { ClinicFormData } from '@/hooks/useClinicCRUD';
+import { Clinic } from '@/types/clinic';
 
 const formSchema = z.object({
   clinic_name: z.string().min(1, 'اسم العيادة مطلوب'),
-  doctor_name: z.string().min(1, 'اسم الطبيب مطلوب'),
+  doctor_name: z.string().optional(),
   license_number: z.string().min(1, 'رقم الترخيص مطلوب'),
   specialization: z.string().min(1, 'التخصص مطلوب'),
   phone: z.string().optional(),
   address: z.string().optional(),
   issue_date: z.string().optional(),
   expiry_date: z.string().optional(),
-  license_status: z.enum(['active', 'expired', 'suspended']).default('active'),
+  license_status: z.enum(['active', 'expired', 'suspended', 'pending']).default('active'),
 });
 
-export type FormData = z.infer<typeof formSchema>;
-
 interface ClinicFormProps {
-  onSubmit: (data: FormData) => void;
-  defaultValues?: Partial<FormData>;
+  clinic?: Clinic;
+  onSubmit: (data: ClinicFormData) => void;
   isLoading?: boolean;
+  mode: 'create' | 'edit';
 }
 
 const ClinicForm: React.FC<ClinicFormProps> = ({
+  clinic,
   onSubmit,
-  defaultValues,
   isLoading = false,
+  mode,
 }) => {
   const { toast } = useToast();
   const { data: specializations, isLoading: specializationsLoading } = useSpecializations();
 
-  const form = useForm<FormData>({
+  const form = useForm<ClinicFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      clinic_name: '',
-      doctor_name: '',
-      license_number: '',
-      specialization: '',
-      phone: '',
-      address: '',
-      issue_date: '',
-      expiry_date: '',
-      license_status: 'active',
-      ...defaultValues,
+      clinic_name: clinic?.clinic_name || '',
+      doctor_name: clinic?.doctor_name || '',
+      license_number: clinic?.license_number || '',
+      specialization: clinic?.specialization || '',
+      phone: clinic?.phone || '',
+      address: clinic?.address || '',
+      issue_date: clinic?.issue_date || '',
+      expiry_date: clinic?.expiry_date || '',
+      license_status: clinic?.license_status || 'active',
     },
   });
 
-  const handleSubmit = (data: FormData) => {
+  const handleSubmit = (data: ClinicFormData) => {
     console.log('Form submitted with data:', data);
     onSubmit(data);
   };
@@ -95,7 +96,7 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
             name="doctor_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>اسم الطبيب *</FormLabel>
+                <FormLabel>اسم الطبيب</FormLabel>
                 <FormControl>
                   <Input placeholder="أدخل اسم الطبيب" {...field} />
                 </FormControl>
@@ -124,7 +125,7 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>التخصص *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={specializationsLoading ? "جاري التحميل..." : "اختر التخصص"} />
@@ -164,7 +165,7 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>حالة الترخيص</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="اختر حالة الترخيص" />
@@ -174,6 +175,7 @@ const ClinicForm: React.FC<ClinicFormProps> = ({
                     <SelectItem value="active">نشط</SelectItem>
                     <SelectItem value="expired">منتهي الصلاحية</SelectItem>
                     <SelectItem value="suspended">معلق</SelectItem>
+                    <SelectItem value="pending">قيد المراجعة</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
