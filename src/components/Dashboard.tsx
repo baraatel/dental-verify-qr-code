@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ClinicManagement from './ClinicManagement';
 import SpecializationManagement from './SpecializationManagement';
@@ -6,6 +5,7 @@ import SiteSettingsManagement from './SiteSettingsManagement';
 import AnalyticsReport from './AnalyticsReport';
 import QRScanner from './QRScanner';
 import VerificationResultDialog from './VerificationResultDialog';
+import ExcelUpload from './ExcelUpload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Building2, Stethoscope, Settings, BarChart3, RefreshCw, QrCode, Camera } from 'lucide-react';
@@ -170,7 +170,8 @@ const Dashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="clinics">
+        <TabsContent value="clinics" className="space-y-6">
+          <ExcelUpload />
           <ClinicManagement />
         </TabsContent>
 
